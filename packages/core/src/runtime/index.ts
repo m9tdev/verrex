@@ -1,4 +1,4 @@
-import { Cause, Effect, Exit, Fiber, Layer, Option, Queue, Scope, type Types } from "effect"
+import { Cause, Effect, Exit, Fiber, Layer, Option, Queue, Scope, Stream, type Types } from "effect"
 import { AsyncResult, AtomRef, AtomRegistry } from "effect/unstable/reactivity"
 import { coerceAsync, type ErrorSink, isAtomRef, trackDeps } from "./coerce.ts"
 import type { FoldE, FoldLiveE, FoldR } from "./types/Fold.ts"
@@ -186,6 +186,48 @@ export const asyncRef = <A, E, R>(
       state: state as AtomRef.ReadonlyRef<AsyncResult.AsyncResult<A, E>>,
       refetch: schedule,
     }
+  })
+
+/**
+ * The reactive *push* data primitive — `asyncRef`'s sibling for `Stream`.
+ *
+ * `streamRef(stream, initial)` runs the stream on the **mount fiber** (so its
+ * `R` folds into the component — a forgotten `Layer` is a compile error at the
+ * root `mount`) and returns a `ReadonlyRef<A>` holding `initial` until the
+ * first emission, then the latest element. The fiber is `forkScoped`-d: the
+ * stream is interrupted when the enclosing scope closes — the Scope IS the
+ * unsubscribe. Derive with the ref's own `.map` (equality-deduped) and
+ * interpolate like any ref:
+ *
+ * ```tsx
+ * const now = yield* streamRef(tick, new Date())
+ * //    now: AtomRef.ReadonlyRef<Date>
+ * const seconds = now.map((d) => d.getSeconds())
+ * <span>{seconds}</span>
+ * ```
+ *
+ * The error channel must be `never`: a stream's failure happens *after*
+ * construction succeeded, so there is no honest Effect channel to ride —
+ * handle failures as values at the stream level (`Stream.catch*`,
+ * `Stream.retry`, encode them in `A`) before handing it over. This mirrors
+ * Effect's own boundary: `Atom.make(stream)` wraps state in `AsyncResult`
+ * for the same reason; `streamRef` keeps the sync-read `A` contract instead
+ * and pushes the failure story onto the stream where the combinators live.
+ * Why not `Atom.make(stream)`: its source must already be context-free
+ * (`R = AtomRegistry`), so a service-needing stream forces `Atom.runtime` —
+ * which bakes the Layer and discharges `R`, losing the thesis. Running on
+ * the mount fiber is what keeps `R` folded (same design as `asyncRef`).
+ */
+export const streamRef = <A, R>(
+  stream: Stream.Stream<A, never, R>,
+  initial: A,
+): Effect.Effect<AtomRef.ReadonlyRef<A>, never, R | Scope.Scope> =>
+  Effect.gen(function* () {
+    const ref = AtomRef.make(initial)
+    yield* Effect.forkScoped(
+      Stream.runForEach(stream, (a) => Effect.sync(() => ref.set(a))),
+    )
+    return ref as AtomRef.ReadonlyRef<A>
   })
 
 // ─── Tagged-error dispatch (shared by Async's tag-map `failure` arm and Catch) ─
