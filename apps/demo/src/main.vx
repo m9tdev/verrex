@@ -346,9 +346,11 @@ const tagUser = yield* asyncRef(() => fetchUser(userId.value))
         step: "09",
         title: "Streams (push-based, fine-grained)",
         concept:
-          "An Effect Stream drives an analog clock through streamRef, asyncRef's push sibling: the stream is a feed of wall-clock second boundaries (aligned to real seconds, drift-free — the full source shows how), and streamRef(stream, initial) runs it on the mount fiber, handing back a ReadonlyRef<Date> updated per emission. No manual fork, no unsubscribe bookkeeping: the fiber dies with the component's Scope (↻ reset, watch it freeze — the same mechanism as step 06), and a service-needing stream would fold its R into the component, like every other primitive here. The fine-grained part is derivation: each hand angle is a now.map(…) — a derived ref that recomputes on every tick but notifies only when ITS value changed — and each hand's style is a tracked attr on exactly its own derived ref. A tick re-renders ONE DOM attribute — watch the flash hit only the second hand, exactly on the second, with the other hands joining at the top of the minute.",
+          "An Effect Stream drives an analog clock through streamRef, asyncRef's push sibling: the stream is the current time once a second (Stream.tick mapped to new Date()), and streamRef(stream, initial) runs it on the mount fiber, handing back a ReadonlyRef<Date> updated per emission. No manual fork, no unsubscribe bookkeeping: the fiber dies with the component's Scope (↻ reset, watch it freeze — the same mechanism as step 06), and a service-needing stream would fold its R into the component, like every other primitive here. The fine-grained part is derivation: each hand angle is a now.map(…) — a derived ref that recomputes on every tick but notifies only when ITS value changed — and each hand's style is a tracked attr on exactly its own derived ref. A tick re-renders ONE DOM attribute — watch the flash hit only the second hand, exactly on the second, with the other hands joining at the top of the minute.",
         type: "Effect<View, never, Scope>",
-        code: `// secondTicks: Stream<Date> — the time at every wall-clock second boundary
+        code: `const secondTicks = Stream.tick("1 second").pipe(
+  Stream.map(() => new Date()),
+)
 
 export const Clock = Component.make(function* () {
   // stream → ReadonlyRef<Date>; the fiber dies with the component's Scope
