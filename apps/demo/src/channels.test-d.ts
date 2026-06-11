@@ -57,9 +57,9 @@ assertEquals<CounterType, Effect.Effect<View, never, never>>()
 type LiveUserType = ReturnType<typeof LiveUser>
 assertEquals<LiveUserType, Effect.Effect<View, never, Http | Scope.Scope>>()
 
-// ─── Clock forks a Stream pipeline with `Effect.forkScoped`, so `Scope` is
-//     the component's only requirement — the stream itself can't fail, so E
-//     stays `never` ──────────────────────────────────────────────────────
+// ─── Clock bridges a Stream to a ref via `streamRef`, whose fork makes
+//     `Scope` the component's only requirement — the tick stream needs no
+//     services and can't fail, so R and E contribute nothing else ─────────
 
 type ClockType = ReturnType<typeof Clock>
 assertEquals<ClockType, Effect.Effect<View, never, Scope.Scope>>()
