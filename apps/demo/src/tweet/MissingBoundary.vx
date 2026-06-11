@@ -1,0 +1,26 @@
+import { Effect } from "effect"
+import { Async, mount } from "@verrex/core"
+import { Http } from "../services.ts"
+
+// TEMPORARY — tweet screenshot material (PR #86), not wired into the app.
+// This file does NOT compile, on purpose: that's the screenshot.
+
+// A fetch that can fail *after* render — the initial load or any refetch.
+// No `failure` arm, so HttpError rides the live channel: View<HttpError>.
+const UserCard = Effect.fn("UserCard")(function* (_props: {} = {}) {
+  const http = yield* Http
+
+  return yield* (
+    <div class="card">
+      {Async(() => http.getUser("42"), {
+        initial: <span>loading…</span>,
+        success: (user) => <strong>{user.name}</strong>,
+      })}
+    </div>
+  )
+})
+
+// mount requires View<never> — every live error handled somewhere.
+// Nothing between the fetch and the root handles HttpError, so this
+// line refuses to compile — and the error names what's unhandled:
+export const page = mount(UserCard(), document.body)

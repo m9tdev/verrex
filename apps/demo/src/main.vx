@@ -10,6 +10,7 @@ import { highlight } from "./highlight.ts"
 import { Lifecycle } from "./Lifecycle.vx"
 import { LiveUser } from "./LiveUser.vx"
 import { Http, HttpLive, Theme, ThemeLive } from "./services.ts"
+import { TagSelective } from "./tweet/TagSelective.vx"
 import { Todos } from "./Todos.vx"
 import { UserPage } from "./UserPage.vx"
 
@@ -336,6 +337,36 @@ const tagUser = yield* asyncRef(() => fetchUser(userId.value))
       {demoSlot("escalate")}
     </section>
 
+    {/* TEMPORARY section — tweet screenshot material (PR #88). Remove with src/tweet/. */}
+    <section class="tour">
+      {copy({
+        step: "09",
+        title: "Tag-selective failure (pick each error's home)",
+        concept:
+          "The failure arm now picks each error's home per call site: a function is a catch-all at the leaf; a tag map renders matched tags in place — and keeps the fetch loop LIVE, so picking another id recovers the view with no boundary reset — while the residual rides View<Exclude<E, {_tag}>> to the nearest Catch. Try it: \"Missing (999)\" renders inline and recovers when you pick Ada; \"Throttled (503)\" isn't in the map, so it escalates to the page boundary. One convention, both error homes: function = catch-all, object = these tags here, the rest rides.",
+        type: "Effect<View, never, Scope>",
+        code: `{Catch(
+  <section>
+    {Async(() => lookup(userId.value), {
+      initial: <span>loading…</span>,
+      // NotFound is handled HERE — and the view stays live:
+      failure: {
+        NotFound: e => <p>no user {e.id} — pick another</p>,
+      },
+      success: name => <strong>{name}</strong>,
+    })}
+  </section>,
+  // …while RateLimited rides View<RateLimited> to this boundary:
+  {
+    RateLimited: (e, reset) =>
+      <p>rate limited <button onclick={reset}>retry</button></p>,
+  },
+)}`,
+        file: "tweet/TagSelective.vx",
+      })}
+      {demoSlot("tagselect")}
+    </section>
+
     <footer class="site-footer">
       <p>
         verrex is an experimental proof-of-concept.{" "}
@@ -421,6 +452,7 @@ const program = Effect.gen(function* () {
     setupDemo("lifecycle", () => Lifecycle())
     setupDemo("boundary", () => CatchDemo())
     setupDemo("escalate", () => AsyncEscalate())
+    setupDemo("tagselect", () => TagSelective())
   })
   // Start the reactivity flash once the initial mounts settle (incl. the
   // simulated fetch latency), so only interactions and resets flash — not page
