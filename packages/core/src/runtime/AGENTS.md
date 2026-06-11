@@ -12,6 +12,16 @@ Public surface (from `index.ts`):
   error discharged), returns `Effect<void, never, R | AtomRegistry | Scope>`
 - `list` — keyed reactive list helper (`View.List` IR node)
 - `Async` / `asyncRef` / `AsyncHandle` — async render boundary + primitive returning `{ state, refetch }` (errors-as-values; see "`asyncRef` / `Async`" below)
+- `streamRef` — `asyncRef`'s push sibling: `streamRef(stream, initial)` runs
+  the stream on the mount fiber (`R` folds; same design rationale as
+  `asyncRef` — never `Atom.make(stream)`, whose source must be context-free)
+  and returns a `ReadonlyRef<A>` updated per emission; the fiber is
+  `forkScoped`-d, so the Scope IS the unsubscribe. The stream's `E` must be
+  `never` — a live failure has no honest Effect channel; discharge it with
+  `Stream.catch*`/`Stream.retry` (or encode it in `A`) before handing over.
+  Derive with the ref's `.map` (equality-deduped notify). Pinned by
+  `testing/stream-ref.test.ts` (latest-emission semantics, derived-ref dedup,
+  scope interruption, the R-fold type, and the `E = never` constraint).
 - `Catch` — view-level error boundary (one overloaded helper: function 2nd-arg = catch-all, object 2nd-arg = tag-selective; mirrors `Effect.catch*`; see "`Catch`" below)
 - `Fragment` — `<>...</>` compile target (a direct-call component since
   #71: `Fragment({ children: [...] })`, generic over the children tuple —
@@ -34,14 +44,18 @@ surrounding `h()`. `mount` requires both error channels `never`;
 names the error — the runtime counterpart of a forgotten Layer naming a
 service. See [`types/Fold.ts`](./types/Fold.ts).
 
-### `h()` parameter naming — coupled to the TS plugin
+### Compiler-slot parameter naming — coupled to the TS plugin
 
-The `HFn` type's parameters are `_tag`, `_props`, `_children`
-(underscore prefix, in `h.ts`). This is **coupled to
+The `HFn` type's parameters are `_tag`, `_props`, `_children` (in
+`h.ts`) and `Component.make`'s name slot is `_name` (in `Component.ts`)
+— underscore prefix marks a compiler-filled slot. This is **coupled to
 [`@verrex/ts-plugin`](../../../ts-plugin/AGENTS.md)** — the plugin's
 inlay-hint filter drops any hint matching
-`/^_?(tag|props|children):?$/i`, so these labels never appear in
-the editor margin. If you rename them, update the regex.
+`/^(?:_?(?:tag|props|children)|_name):?$/i`, so these labels never
+appear in the editor margin (without the filter, the injected name
+argument's `_name:` hint would render after the call's `})`). `_name`
+is matched underscore-only — bare `name:` is a common user parameter
+and keeps its hint. If you rename a slot, update the regex.
 
 ## Files
 
@@ -53,7 +67,7 @@ the editor margin. If you rename them, update the regex.
 | `View.ts` | `View<E>` IR. The runtime shape is `ViewNode` — a hand-written union of 7 phantom-free named interfaces (`ViewText`…`ViewBoundary`, `ViewEmpty`); constructors via `Data.taggedEnum<ViewNode>()`. `View<E = never> = ViewNode & ViewErr<E>` layers the runtime-error channel on via a covariant phantom (`ViewErr`), so `View<HttpError>` ⊄ `View<never>` (mount can require it) while a `ViewNode` ⊂ any `View<E>` (constructors need no casts). Plus `isView`, `VIEW_TAGS` |
 | `mount.ts` | DOM renderer. `buildDom(view, ctx, scope) → Node` (`ctx: BuildCtx = { registry, context, sink }`), `mount(app, el)`. Cleanup is delegated to `Scope` — every subscription/listener/release registers a finalizer on the scope it was created in, and parent-fork cascade tears them down on close. Owns `buildScopedChild` (the one place a dynamic subtree gets a parent-linked child scope), the `List` **interpreter** that applies a `reconcile.ts` plan to real DOM + scopes, and the error **sink** (runs event-handler Effects + routes runtime failures) |
 | `reconcile.ts` | Pure keyed-list diff. `plan(prevKeys, nextKeys) → ReconcileOp[]` over opaque keys — no DOM, no `Scope`, no `Effect`. The runtime's highest-bug-density logic, made exhaustively unit-testable. `mount`'s `List` case interprets the ops |
-| `index.ts` | Public exports + `list`, `Async`, `asyncRef`, `Catch` (overloaded catch-all + tag-selective, over an internal `makeBoundary`), `Fragment`, `VerrexLive` |
+| `index.ts` | Public exports + `list`, `Async`, `asyncRef`, `streamRef`, `Catch` (overloaded catch-all + tag-selective, over an internal `makeBoundary`), `Fragment`, `VerrexLive` |
 | `coerce.test.ts` | Vitest suite for `coerceAsync` / `coerceSync` (parity + the sync/async asymmetry pin) |
 | `reconcile.test.ts` | Pure diff tests — an apply-to-array oracle (plan turns `prev` into `next`) plus exact op-sequence pins (move-minimality; index updates on shift) |
 | `types/Fold.ts` | `ChildE`/`ChildLiveE`/`ChildR` + `FoldE`/`FoldLiveE`/`FoldR` — the channel-fold conditional types. Two error families: construction (`*E`, Effect channel) vs live (`*LiveE`, `View<E>` channel). No `Tag*` family since #71 (component tags are direct calls) |
@@ -88,7 +102,8 @@ if it grows past these, it's grown too much:
    no name → no span (the anonymous `Effect.fn` form never calls
    `useSpan`), but failures still carry definition + call-site stack
    frames via `CurrentStackFrame`. In plain `.ts` (tests, harnesses) pass
-   the name explicitly.
+   the name explicitly. The parameter is `_name` — see "Compiler-slot
+   parameter naming" above for the inlay-hint coupling.
 
 Runtime: `Effect.fn` accepts both body shapes (it checks
 `isEffect(body(...))` before iterating), so one implementation serves both

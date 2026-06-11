@@ -41,8 +41,16 @@ describe("SUPPRESS_RE", () => {
     }
   })
 
+  it("matches Component.make's compiler-filled _name slot (underscore only)", () => {
+    for (const s of ["_name", "_name:", "_Name:"]) {
+      expect(SUPPRESS_RE.test(s)).toBe(true)
+    }
+  })
+
+  // Bare `name:` is a common user parameter — its hint must survive; only
+  // the underscore-prefixed compiler slot is suppressed.
   it("does not match unrelated labels", () => {
-    for (const s of ["count:", "name:", "tagName:", "children2:"]) {
+    for (const s of ["count:", "name:", "tagName:", "children2:", "_named:"]) {
       expect(SUPPRESS_RE.test(s)).toBe(false)
     }
   })

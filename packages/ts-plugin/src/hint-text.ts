@@ -1,11 +1,15 @@
 /**
- * Matches the labels TypeScript emits for `h()`'s parameters — `_tag`,
- * `_props`, `_children` (and the un-prefixed `tag:`/`props:`/`children:`
- * forms). The TS plugin filters these inlay hints out of `.vx` files; see
- * `service-proxy.ts`. Coupled by name to `verrex`'s `h` parameter
- * names — documented in both packages' AGENTS.md.
+ * Matches the labels TypeScript emits for the compiler-filled parameters —
+ * `h()`'s `_tag`/`_props`/`_children` (and the un-prefixed
+ * `tag:`/`props:`/`children:` forms) plus `Component.make`'s `_name` slot
+ * (the compiler injects the name argument, so its hint lands on generated
+ * code and leaks to the end of the call). `_name` is matched ONLY with the
+ * underscore — bare `name:` is a common user parameter and must keep its
+ * hint. The TS plugin filters these inlay hints out of `.vx` files; see
+ * `service-proxy.ts`. Coupled by name to `verrex`'s `h` / `Component.make`
+ * parameter names — documented in both packages' AGENTS.md.
  */
-export const SUPPRESS_RE = /^_?(tag|props|children):?$/i
+export const SUPPRESS_RE = /^(?:_?(?:tag|props|children)|_name):?$/i
 
 /** The subset of an inlay hint we read a label string from. */
 export interface HintTextShape {

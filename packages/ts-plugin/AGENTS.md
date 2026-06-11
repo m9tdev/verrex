@@ -22,8 +22,8 @@ for tsserver to `require()`.
 | `src/index.ts` | Entry. Re-exports `pluginFactory` via `export =`. |
 | `src/jsx-tags.ts` | `findJsxTagPair` — takes a `JsxTagProvider` (the in-process seam) and uses its `jsxRanges` from the shared `VerrexVirtualCode` to find tag-pair partners for document highlights. The service-proxy builds the provider by resolving the `VerrexVirtualCode` from Volar's context. |
 | `src/classify-references.ts` | `classifyRefs` — decorates each ref with `{ isDef, isImport }` in one pass, with a per-call file-content cache so each source file is read at most once. Plus `refKey` (the `${fileName}:${textSpan.start}` identity), `dedupeRefs` (drop same-key hits, first-seen order), and `sortClassifiedRefs` (def→usages→imports ordering on the precomputed booleans). The two reference handlers compose these instead of inlining the key/sort logic. |
-| `src/hint-text.ts` | `hintText(hint)` — reads an inlay hint's label across the shapes different TS versions use (`hint.text` string, `hint.text` parts, `hint.displayParts`), returning the first non-empty. Plus `SUPPRESS_RE`, the `_tag`/`_props`/`_children` regex. Pure + unit-tested so the filter doesn't need a tsserver. |
-| `src/service-proxy.ts` | `pluginFactory` — instantiates the shared LanguagePlugin via `createVerrexLanguagePlugin<string>(identity)`, builds Volar's `createLanguageServicePlugin` (capturing the session `Language` through its `setup(language)` hook), then wraps the resulting `LanguageService` in a Proxy with a few method overrides (filter `verrex`'s `h.ts` from definition results, JSX tag-pair document highlights, `_tag`/`_props`/`_children` inlay-hint filter, reference dedup + sort). Resolves the per-`.vx` `VerrexVirtualCode` from `language.scripts` when it needs `jsxRanges` or `source`. |
+| `src/hint-text.ts` | `hintText(hint)` — reads an inlay hint's label across the shapes different TS versions use (`hint.text` string, `hint.text` parts, `hint.displayParts`), returning the first non-empty. Plus `SUPPRESS_RE`, the `_tag`/`_props`/`_children`/`_name` regex. Pure + unit-tested so the filter doesn't need a tsserver. |
+| `src/service-proxy.ts` | `pluginFactory` — instantiates the shared LanguagePlugin via `createVerrexLanguagePlugin<string>(identity)`, builds Volar's `createLanguageServicePlugin` (capturing the session `Language` through its `setup(language)` hook), then wraps the resulting `LanguageService` in a Proxy with a few method overrides (filter `verrex`'s `h.ts` from definition results, JSX tag-pair document highlights, `_tag`/`_props`/`_children`/`_name` inlay-hint filter, reference dedup + sort). Resolves the per-`.vx` `VerrexVirtualCode` from `language.scripts` when it needs `jsxRanges` or `source`. |
 | `src/classify-references.test.ts` | Unit tests for `classifyRefs` (injected fake `readFile`, no disk), plus `refKey`/`dedupeRefs`/`sortClassifiedRefs` — pins the dedup key, first-seen order, and the def→usages→imports ordering (incl. usage-tier stability) without a tsserver. |
 | `src/plugin.test.mjs` | Manual smoke test loading the built bundle (`dist/index.cjs`) and asserting plugin shape. Not run by `pnpm test` (vitest config only picks up `*.test.ts`); invoke directly with `node` after building. |
 | `vitest.config.ts` | Picks up `src/**/*.test.ts`. The package's `test` script runs vitest first, then builds and runs the integration harness. |
@@ -53,7 +53,7 @@ live in [`@verrex/core/language`](../core/src/language/AGENTS.md) — shared wit
                ▼  our Proxy wrapper
                │    filterRuntimeHit()         — drop hits in runtime/h.ts
                │    getDocumentHighlights()    — JSX tag pair custom path
-               │    provideInlayHints()        — filter _tag/_props/_children
+               │    provideInlayHints()        — filter _tag/_props/_children/_name
                │    getCompletionsAtPosition() — clamp cross-line replacementSpans
                │    get/findReferences()       — dedupe + sort
                ▼
@@ -128,7 +128,12 @@ hand-rolled.
 
 - **`provideInlayHints`** — `.vx`-only filter. Volar gives us all
   hints including the h() parameter labels (`_tag`, `_props`,
-  `_children`). We drop any hint whose label matches `SUPPRESS_RE`.
+  `_children`) and the `_name:` label for `Component.make`'s
+  compiler-injected name argument (the injected literal has no source
+  loc, so its hint rides the preceding mapping and would render at the
+  end of the call — `})name:`). We drop any hint whose label matches
+  `SUPPRESS_RE`. Bare `name:` is deliberately NOT matched — it's a
+  common user parameter; only the underscore form is suppressed.
   Label extraction (`hintText`) and the regex live in `hint-text.ts`
   (pure + unit-tested); `hintText` reads the first non-empty of
   `hint.text` (string), `hint.text` (parts), or `hint.displayParts`
@@ -180,12 +185,13 @@ index sees usages across files. No sibling `.ts` shim is involved.
 
 ## Coupling to other packages
 
-- **`verrex` `h.ts`** — the `HFn` signature uses parameter
-  names `_tag`/`_props`/`_children` (with underscore prefix).
+- **`verrex` `h.ts` / `Component.ts`** — the `HFn` signature uses
+  parameter names `_tag`/`_props`/`_children`, and `Component.make`'s
+  compiler-filled name slot is `_name` (underscore prefix throughout).
   This is **coupled to the inlay-hint filter regex above**. If you
-  rename them in `h.ts`, update the regex in `provideInlayHints`.
-  The `_?` in the regex makes it tolerate both the prefixed and
-  unprefixed variants.
+  rename them, update the regex in `hint-text.ts`. The `_?` makes the
+  h() trio tolerate both prefixed and unprefixed variants; `_name` is
+  underscore-only so user `name:` hints survive.
 
 - **`@verrex/core/compiler` `copyLoc`** — the compiler preserves source
   locations on emitted nodes. Without that, Babel's source map
@@ -263,7 +269,7 @@ shape check.
 - Root [`AGENTS.md`](../../AGENTS.md) — the "JSX syntax, not JSX
   semantics" framing this plugin enforces
 - [`verrex`](../core/src/runtime/AGENTS.md) — the `_tag/_props/_children`
-  parameter naming
+  and `_name` parameter naming
 - [`@verrex/core/compiler`](../core/src/compiler/AGENTS.md) — the source-location
   preservation that the source map depends on
 - [`@verrex/core/language`](../core/src/language/AGENTS.md) — the shared Volar
