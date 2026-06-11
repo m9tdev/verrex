@@ -5,42 +5,35 @@ import { AtomRef } from "effect/unstable/reactivity"
 /**
  * Push-based fine-grained updates: an Effect `Stream` drives an analog clock.
  *
- * One `Stream.tick` pipeline (emits immediately, then every second) writes all
- * three hand angles on every tick; `Effect.forkScoped` binds the fiber to the
- * component's `Scope`, so unmounting (or the demo's ↻ reset) interrupts the
- * stream — no subscription bookkeeping, the Scope IS the unsubscribe.
+ * One `Stream.tick` pipeline (emits immediately, then every second) pushes the
+ * current time into a single `now` ref — the only write in the component;
+ * `Effect.forkScoped` binds the fiber to the component's `Scope`, so
+ * unmounting (or the demo's ↻ reset) interrupts the stream — no subscription
+ * bookkeeping, the Scope IS the unsubscribe.
  *
- * The fine-grained part: `AtomRef` notifications are equality-aware, so
- * writing an unchanged angle is a silent no-op, and each hand's `style` is a
- * tracked attr subscribed to exactly its own ref. Net effect per tick: one
- * DOM write — the second hand's rotation. The minute and hour hands join
- * only at the top of the minute (the hour hand advances 0.5° per minute).
+ * The fine-grained part is *derivation*, not writes: each hand angle is a
+ * `now.map(...)` — a derived `ReadonlyRef` that recomputes on every tick but
+ * notifies its subscribers only when ITS value actually changed (`MapRef`'s
+ * subscribe is equality-deduped). Each hand's `style` is a tracked attr on
+ * exactly its own derived ref. Net effect per tick: one DOM write — the
+ * second hand's rotation. The minute and hour hands join only at the top of
+ * the minute (the hour hand advances 0.5° per minute).
  *
  * Inferred type: `Effect<View, never, Scope>`
  *   — `Scope` is the fork's contribution; the stream itself can't fail.
  */
-const secondAngle = (d: Date) => d.getSeconds() * 6
-const minuteAngle = (d: Date) => d.getMinutes() * 6
-const hourAngle = (d: Date) => (d.getHours() % 12) * 30 + d.getMinutes() * 0.5
-
 export const Clock = Component.make(function* () {
-  const start = new Date()
-  const second = AtomRef.make(secondAngle(start))
-  const minute = AtomRef.make(minuteAngle(start))
-  const hour = AtomRef.make(hourAngle(start))
+  const now = AtomRef.make(new Date())
 
   yield* Effect.forkScoped(
     Stream.tick("1 second").pipe(
-      Stream.runForEach(() =>
-        Effect.sync(() => {
-          const d = new Date()
-          second.set(secondAngle(d)) // notifies every tick
-          minute.set(minuteAngle(d)) // equality-deduped: no-op until the minute turns
-          hour.set(hourAngle(d)) // ditto
-        }),
-      ),
+      Stream.runForEach(() => Effect.sync(() => now.set(new Date()))),
     ),
   )
+
+  const second = now.map((d) => d.getSeconds() * 6) // notifies every tick
+  const minute = now.map((d) => d.getMinutes() * 6) // …only when the minute turns
+  const hour = now.map((d) => (d.getHours() % 12) * 30 + d.getMinutes() * 0.5)
 
   return yield* (
     <div class="aclock">
