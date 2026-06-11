@@ -1,0 +1,36 @@
+import { Component } from "@verrex/core"
+import { Effect, Stream } from "effect"
+import { AtomRef } from "effect/unstable/reactivity"
+
+/**
+ * Push-based data: an Effect `Stream` drives an `AtomRef`.
+ *
+ * `Stream.tick` emits immediately and then every second; `runForEach`
+ * pushes the current time into `now`, and the whole pipeline is
+ * `Effect.forkScoped`-ed — the fiber is bound to the component's `Scope`,
+ * so unmounting (or the demo's ↻ reset) interrupts the stream. No
+ * subscription bookkeeping: the Scope IS the unsubscribe.
+ *
+ * Inferred type: `Effect<View, never, Scope>`
+ *   — `Scope` is the fork's contribution; the stream itself can't fail.
+ */
+export const Clock = Component.make(function* () {
+  const now = AtomRef.make(new Date())
+
+  yield* Effect.forkScoped(
+    Stream.tick("1 second").pipe(
+      Stream.runForEach(() => Effect.sync(() => now.set(new Date()))),
+    ),
+  )
+
+  return yield* (
+    <div class="clock">
+      <span class="clock-time">{now.value.toLocaleTimeString()}</span>
+      <span class="clock-date">{now.value.toLocaleDateString(undefined, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      })}</span>
+    </div>
+  )
+})

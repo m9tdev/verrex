@@ -5,6 +5,7 @@ import { Counter } from "./Counter.vx"
 import { AsyncUserPage } from "./AsyncUserPage.vx"
 import { AsyncEscalate } from "./AsyncEscalate.vx"
 import { CatchDemo } from "./CatchDemo.vx"
+import { Clock } from "./Clock.vx"
 import { flashOnUpdate } from "./flash.ts"
 import { highlight } from "./highlight.ts"
 import { Lifecycle } from "./Lifecycle.vx"
@@ -340,6 +341,34 @@ const tagUser = yield* asyncRef(() => fetchUser(userId.value))
       {demoSlot("escalate")}
     </section>
 
+    <section class="tour">
+      {copy({
+        step: "09",
+        title: "Streams (push-based data)",
+        concept:
+          "An Effect Stream drives the view: Stream.tick emits immediately and then every second, runForEach pushes the current time into an AtomRef, and Effect.forkScoped binds the whole pipeline to the component's Scope — unmount (or ↻ reset, watch it freeze for a beat) interrupts the fiber. No unsubscribe bookkeeping: closing the Scope IS the cleanup, the same mechanism as step 06. Each tick re-renders only the two text nodes.",
+        type: "Effect<View, never, Scope>",
+        code: `export const Clock = Component.make(function* () {
+  const now = AtomRef.make(new Date())
+
+  // stream → ref; the fiber dies with the component's Scope
+  yield* Effect.forkScoped(
+    Stream.tick("1 second").pipe(
+      Stream.runForEach(() => Effect.sync(() => now.set(new Date()))),
+    ),
+  )
+
+  return yield* (
+    <div class="clock">
+      <span class="clock-time">{now.value.toLocaleTimeString()}</span>
+    </div>
+  )
+})`,
+        file: "Clock.vx",
+      })}
+      {demoSlot("clock")}
+    </section>
+
     <footer class="site-footer">
       <p>
         verrex is an experimental proof-of-concept.{" "}
@@ -425,6 +454,7 @@ const program = Effect.gen(function* () {
     setupDemo("lifecycle", () => Lifecycle())
     setupDemo("boundary", () => CatchDemo())
     setupDemo("escalate", () => AsyncEscalate())
+    setupDemo("clock", () => Clock())
   })
   // Start the reactivity flash once the initial mounts settle (incl. the
   // simulated fetch latency), so only interactions and resets flash — not page

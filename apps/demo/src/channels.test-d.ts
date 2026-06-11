@@ -9,6 +9,7 @@ import type { AtomRegistry } from "effect/unstable/reactivity"
 import { Async, type AsyncHandle, Catch, h, mount, type View } from "@verrex/core"
 import { AsyncEscalate } from "./AsyncEscalate.vx"
 import { AsyncUserPage } from "./AsyncUserPage.vx"
+import { Clock } from "./Clock.vx"
 import { Counter } from "./Counter.vx"
 import { LiveUser } from "./LiveUser.vx"
 import { HttpError, Http, Theme, type User } from "./services.ts"
@@ -55,6 +56,13 @@ assertEquals<CounterType, Effect.Effect<View, never, never>>()
 
 type LiveUserType = ReturnType<typeof LiveUser>
 assertEquals<LiveUserType, Effect.Effect<View, never, Http | Scope.Scope>>()
+
+// ─── Clock forks a Stream pipeline with `Effect.forkScoped`, so `Scope` is
+//     the component's only requirement — the stream itself can't fail, so E
+//     stays `never` ──────────────────────────────────────────────────────
+
+type ClockType = ReturnType<typeof Clock>
+assertEquals<ClockType, Effect.Effect<View, never, Scope.Scope>>()
 
 // ─── Composition: a tree containing UserPage AND Counter unions channels ─
 

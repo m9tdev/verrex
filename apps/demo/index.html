@@ -229,6 +229,14 @@
         white-space: pre; overflow-x: auto;
       }
 
+      /* Stream clock (step 09): tabular nums so the ticking digits don't jiggle. */
+      .clock { display: flex; flex-direction: column; gap: 0.3rem; }
+      .clock .clock-time {
+        font-size: 2rem; font-variant-numeric: tabular-nums;
+        letter-spacing: 0.02em; color: var(--accent);
+      }
+      .clock .clock-date { color: var(--muted); font-size: 0.85rem; }
+
       /* ─── Small screens & touch ────────────────────────────── */
       /* No double-tap-to-zoom (the demo buttons invite rapid taps);
          pinch-zoom still works, unlike viewport user-scalable=no. */
