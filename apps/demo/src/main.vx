@@ -353,7 +353,7 @@ const tagUser = yield* asyncRef(() => fetchUser(userId.value))
   // the stream's fiber dies with the component's Scope
   const now = yield* streamRef(
     Stream.fromEffectRepeat(
-      Effect.suspend(() => Effect.sleep(1000 - (Date.now() % 1000))).pipe(
+      Effect.sleep(1000 - (Date.now() % 1000)).pipe(
         Effect.map(() => new Date()),
       ),
     ),
