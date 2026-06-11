@@ -6,12 +6,13 @@ import { Stream } from "effect"
  * through `streamRef` — `asyncRef`'s push sibling.
  *
  * The stream is the current time once a second (`Stream.tick` emits
- * immediately, then every second). `streamRef(stream, initial)` runs it on
- * the mount fiber and hands back a `ReadonlyRef<Date>` updated per
- * emission — no manual fork, no subscription bookkeeping: the fiber dies
- * with the component's `Scope` (the demo's ↻ reset interrupts it), and a
+ * immediately, then every second). `streamRef(stream)` runs it on the mount
+ * fiber and hands back a `ReadonlyRef<Date>` updated per emission — no
+ * manual fork, no subscription bookkeeping: the fiber dies with the
+ * component's `Scope` (the demo's ↻ reset interrupts it), and a
  * service-needing stream would fold its `R` into the component (the
- * thesis, same as `asyncRef`).
+ * thesis, same as `asyncRef`). With no `initial`, construction waits for
+ * the first element — `tick`'s immediate first emission makes that instant.
  *
  * The fine-grained part is *derivation*: each hand angle is a `now.map(...)`
  * — a derived `ReadonlyRef` that recomputes on every tick but notifies its
@@ -24,12 +25,8 @@ import { Stream } from "effect"
  * Inferred type: `Effect<View, never, Scope>`
  *   — `Scope` is `streamRef`'s contribution; the tick stream can't fail.
  */
-const secondTicks: Stream.Stream<Date> = Stream.tick("1 second").pipe(
-  Stream.map(() => new Date()),
-)
-
 export const Clock = Component.make(function* () {
-  const now = yield* streamRef(secondTicks, new Date())
+  const now = yield* streamRef(Stream.tick("1 second").pipe(Stream.map(() => new Date())))
 
   const second = now.map((d) => d.getSeconds() * 6) // notifies every tick
   const minute = now.map((d) => d.getMinutes() * 6) // …only when the minute turns
