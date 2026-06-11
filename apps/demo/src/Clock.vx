@@ -5,7 +5,10 @@ import { AtomRef } from "effect/unstable/reactivity"
 /**
  * Push-based fine-grained updates: an Effect `Stream` drives an analog clock.
  *
- * One `Stream.tick` pipeline (emits immediately, then every second) pushes the
+ * The stream is a feed of wall-clock second boundaries: `fromEffectRepeat`
+ * re-runs a sleep that is recomputed from the real clock every cycle
+ * (`1000 - Date.now() % 1000`), so the ticks stay aligned to real seconds
+ * and can't drift. Each tick pushes the
  * current time into a single `now` ref — the only write in the component;
  * `Effect.forkScoped` binds the fiber to the component's `Scope`, so
  * unmounting (or the demo's ↻ reset) interrupts the stream — no subscription
@@ -26,9 +29,10 @@ export const Clock = Component.make(function* () {
   const now = AtomRef.make(new Date())
 
   yield* Effect.forkScoped(
-    Stream.tick("1 second").pipe(
-      Stream.runForEach(() => Effect.sync(() => now.set(new Date()))),
-    ),
+    Stream.fromEffectRepeat(
+      // suspend: re-read the clock each cycle, sleeping to the next boundary
+      Effect.suspend(() => Effect.sleep(1000 - (Date.now() % 1000))),
+    ).pipe(Stream.runForEach(() => Effect.sync(() => now.set(new Date())))),
   )
 
   const second = now.map((d) => d.getSeconds() * 6) // notifies every tick
