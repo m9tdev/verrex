@@ -27,10 +27,7 @@ export const TagSelective = Effect.fn("TagSelective")(function* () {
         // the residual — RateLimited — rides View<RateLimited> here:
         {
           RateLimited: (e, reset) => (
-            <p>
-              rate limited, wait {e.retryAfter}s{" "}
-              <button onclick={reset}>retry</button>
-            </p>
+            <p>wait {e.retryAfter}s <button onclick={reset}>retry</button></p>
           ),
         },
       )}
