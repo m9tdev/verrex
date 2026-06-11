@@ -15,18 +15,18 @@ export const TagSelective = Component.make(function* () {
         <section>
           {Async(() => lookup(userId.value), {
             initial: <span>loading…</span>,
+            success: (name) => <strong>{name}</strong>,
             // NotFound is handled here, and the fetch stays live —
             // pick another id and the view recovers. No reset.
             failure: {
               NotFound: (e) => <p>no user {e.id} — pick another</p>,
             },
-            success: (name) => <strong>{name}</strong>,
           })}
         </section>,
         // the residual — RateLimited — rides View<RateLimited> here:
         {
           RateLimited: (e, reset) => (
-            <p>wait {e.retryAfter}s <button onclick={reset}>retry</button></p>
+            <p>wait {e.retryAfter}s — <button onclick={reset}>retry</button></p>
           ),
         },
       )}
