@@ -344,23 +344,32 @@ const tagUser = yield* asyncRef(() => fetchUser(userId.value))
     <section class="tour">
       {copy({
         step: "09",
-        title: "Streams (push-based data)",
+        title: "Streams (push-based, fine-grained)",
         concept:
-          "An Effect Stream drives the view: Stream.tick emits immediately and then every second, runForEach pushes the current time into an AtomRef, and Effect.forkScoped binds the whole pipeline to the component's Scope — unmount (or ↻ reset, watch it freeze for a beat) interrupts the fiber. No unsubscribe bookkeeping: closing the Scope IS the cleanup, the same mechanism as step 06. Each tick re-renders only the two text nodes.",
+          "An Effect Stream drives an analog clock: every second, one runForEach writes all three hand angles into three AtomRefs, and Effect.forkScoped binds the pipeline to the component's Scope — unmount (or ↻ reset, watch it freeze) interrupts the fiber; closing the Scope IS the unsubscribe, the same mechanism as step 06. The fine-grained part: AtomRef notifications are equality-aware, so writing an unchanged angle is a silent no-op, and each hand's style is a tracked attr subscribed to exactly its own ref. A tick re-renders ONE DOM attribute — watch the flash hit only the second hand, with the other hands joining at the top of the minute.",
         type: "Effect<View, never, Scope>",
         code: `export const Clock = Component.make(function* () {
-  const now = AtomRef.make(new Date())
+  const second = AtomRef.make(secondAngle(new Date()))
+  const minute = AtomRef.make(minuteAngle(new Date()))
+  const hour = AtomRef.make(hourAngle(new Date()))
 
-  // stream → ref; the fiber dies with the component's Scope
+  // stream → refs; the fiber dies with the component's Scope
   yield* Effect.forkScoped(
     Stream.tick("1 second").pipe(
-      Stream.runForEach(() => Effect.sync(() => now.set(new Date()))),
+      Stream.runForEach(() => Effect.sync(() => {
+        const d = new Date()
+        second.set(secondAngle(d)) // notifies every tick
+        minute.set(minuteAngle(d)) // equality-deduped: no-op
+        hour.set(hourAngle(d))     //   until the minute turns
+      })),
     ),
   )
 
   return yield* (
-    <div class="clock">
-      <span class="clock-time">{now.value.toLocaleTimeString()}</span>
+    <div class="aclock">
+      <div class="hand hour"   style={\`transform: rotate(\${hour.value}deg)\`} />
+      <div class="hand minute" style={\`transform: rotate(\${minute.value}deg)\`} />
+      <div class="hand second" style={\`transform: rotate(\${second.value}deg)\`} />
     </div>
   )
 })`,

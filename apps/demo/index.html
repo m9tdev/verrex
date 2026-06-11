@@ -229,13 +229,30 @@
         white-space: pre; overflow-x: auto;
       }
 
-      /* Stream clock (step 09): tabular nums so the ticking digits don't jiggle. */
-      .clock { display: flex; flex-direction: column; gap: 0.3rem; }
-      .clock .clock-time {
-        font-size: 2rem; font-variant-numeric: tabular-nums;
-        letter-spacing: 0.02em; color: var(--accent);
+      /* Stream clock (step 09): the hands carry only `transform: rotate(…)`
+         inline (the reactive attr); everything else lives here. No CSS
+         transition on the hands — each write is a discrete jump, so the flash
+         overlay marks exactly the write, not an animation. */
+      .aclock {
+        position: relative; width: 170px; height: 170px; margin: 0.25rem auto;
+        border: 2px solid var(--border); border-radius: 50%;
       }
-      .clock .clock-date { color: var(--muted); font-size: 0.85rem; }
+      .aclock .mark { position: absolute; inset: 0; }
+      .aclock .mark::before {
+        content: ""; position: absolute; top: 6px; left: calc(50% - 1px);
+        width: 2px; height: 7px; background: var(--border);
+      }
+      .aclock .hand {
+        position: absolute; left: 50%; bottom: 50%;
+        transform-origin: 50% 100%; border-radius: 3px;
+      }
+      .aclock .hour { width: 5px; height: 23%; margin-left: -2.5px; background: var(--text); }
+      .aclock .minute { width: 3px; height: 33%; margin-left: -1.5px; background: var(--text); }
+      .aclock .second { width: 1.5px; height: 38%; margin-left: -0.75px; background: var(--accent); }
+      .aclock .pin {
+        position: absolute; left: 50%; top: 50%; width: 9px; height: 9px;
+        margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: var(--accent);
+      }
 
       /* ─── Small screens & touch ────────────────────────────── */
       /* No double-tap-to-zoom (the demo buttons invite rapid taps);

@@ -12,8 +12,8 @@
  *
  * This is pure demo sugar, framework-agnostic: a `MutationObserver` on the app
  * root catches the same DOM ops verrex performs (a `Reactive` node swap is a
- * childList change; a reactive `class` binding is an attribute change; a list
- * insert/remove adds/removes an element). Overlays are appended to `<body>`,
+ * childList change; a reactive `class` or `style` binding is an attribute
+ * change; a list insert/remove adds/removes an element). Overlays are appended to `<body>`,
  * outside the observed root, so they never feed back into the observer.
  */
 
@@ -86,7 +86,7 @@ export const flashOnUpdate = (root: HTMLElement): MutationObserver => {
     childList: true,
     characterData: true,
     attributes: true,
-    attributeFilter: ["class"],
+    attributeFilter: ["class", "style"],
   })
   return observer
 }
