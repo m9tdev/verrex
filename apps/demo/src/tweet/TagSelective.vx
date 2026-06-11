@@ -1,66 +1,36 @@
-import { Data, Effect } from "effect"
+import { Effect } from "effect"
 import { AtomRef } from "effect/unstable/reactivity"
 import { Async, Catch } from "@verrex/core"
+import { lookup } from "./api.ts" // fails with NotFound | RateLimited
 
-// TEMPORARY — tweet screenshot material (PR #88). Self-contained on purpose
-// so the whole story fits in one screenshot: two tagged errors, one handled
-// at the leaf, one riding the live channel to the page boundary.
-
-class NotFound extends Data.TaggedError("NotFound")<{ readonly id: string }> {}
-class RateLimited extends Data.TaggedError("RateLimited")<{ readonly retryAfter: number }> {}
-
-const users: Record<string, string> = { "42": "Ada Lovelace", "7": "Grace Hopper" }
-
-const lookup = (id: string): Effect.Effect<string, NotFound | RateLimited> =>
-  Effect.gen(function* () {
-    yield* Effect.sleep("600 millis")
-    if (id === "503") return yield* new RateLimited({ retryAfter: 30 })
-    const name = users[id]
-    if (!name) return yield* new NotFound({ id })
-    return name
-  })
-
-/**
- * `Async`'s `failure` arm picks each error's home, per call site:
- *
- * - **function** → catch-all, everything handled at the leaf
- * - **tag map** → matched tags render in place and the fetch loop STAYS
- *   LIVE — pick another id and the view recovers, no boundary, no reset.
- *   The residual (`Exclude<E, { _tag: "NotFound" }>` = `RateLimited`)
- *   rides `View<RateLimited>` to the nearest `Catch`.
- * - **omitted** → all of `E` rides the live channel
- *
- * Inferred type: `Effect<View, never, Scope>`
- */
-export const TagSelective = Effect.fn("TagSelective")(function* (_props: {} = {}) {
+export const TagSelective = Effect.fn("TagSelective")(function* () {
   const userId = AtomRef.make("42")
 
   return yield* (
-    <div class="tag-selective">
-      <div class="controls">
-        <button onclick={() => userId.set("42")}>Ada (42)</button>
-        <button onclick={() => userId.set("7")}>Grace (7)</button>
-        <button onclick={() => userId.set("999")}>Missing (999)</button>
-        <button onclick={() => userId.set("503")}>Throttled (503)</button>
-      </div>
+    <div>
+      <button onclick={() => userId.set("42")}>Ada</button>
+      <button onclick={() => userId.set("999")}>Missing</button>
+      <button onclick={() => userId.set("503")}>Throttled</button>
+
       {Catch(
-        <section class="content">
+        <section>
           {Async(() => lookup(userId.value), {
-            initial: <span class="loading">loading…</span>,
-            // NotFound is handled HERE — and the view stays live:
+            initial: <span>loading…</span>,
+            // NotFound is handled here, and the fetch stays live —
+            // pick another id and the view recovers. No reset.
             failure: {
-              NotFound: (e) => <p class="missing">no user “{e.id}” — pick another</p>,
+              NotFound: (e) => <p>no user {e.id} — pick another</p>,
             },
             success: (name) => <strong>{name}</strong>,
           })}
         </section>,
-        // …while RateLimited rides View<RateLimited> to this boundary:
+        // the residual — RateLimited — rides View<RateLimited> here:
         {
           RateLimited: (e, reset) => (
-            <div class="boundary-fallback">
-              <p class="caught">rate limited — retry after {e.retryAfter}s</p>
-              <button class="retry" onclick={reset}>retry</button>
-            </div>
+            <p>
+              rate limited, wait {e.retryAfter}s{" "}
+              <button onclick={reset}>retry</button>
+            </p>
           ),
         },
       )}
