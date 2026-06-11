@@ -69,6 +69,33 @@ describe("streamRef", () => {
     expect(log).toEqual(["stream done"])
   })
 
+  it("without initial: construction waits for the first element", async () => {
+    const queue = Effect.runSync(Queue.unbounded<number>())
+
+    const Probe = Effect.fn(function* () {
+      const n = yield* streamRef(Stream.fromQueue(queue))
+      return yield* h("span", { class: "n" }, n)
+    })
+
+    let resolved = false
+    const pending = render(Probe()).then((ui) => {
+      resolved = true
+      return ui
+    })
+    await new Promise((r) => setTimeout(r, 30))
+    expect(resolved).toBe(false) // still waiting on the first element
+
+    await Effect.runPromise(Queue.offer(queue, 7))
+    const ui = await pending
+    expect(ui.text(".n")).toBe("7")
+
+    // later emissions keep flowing into the same ref
+    await Effect.runPromise(Queue.offer(queue, 8))
+    while (ui.text(".n") !== "8") await ui.tick()
+
+    await ui.unmount()
+  })
+
   it("folds the stream's R into the component (types)", () => {
     class Feed extends Context.Service<Feed, {
       readonly ticks: Stream.Stream<number>
@@ -80,6 +107,15 @@ describe("streamRef", () => {
       return n
     })
     expectTypeOf(withService).toEqualTypeOf<
+      Effect.Effect<AtomRef.ReadonlyRef<number>, never, Feed | Scope.Scope>
+    >()
+
+    // the no-initial overload folds identically
+    const waiting = Effect.gen(function* () {
+      const feed = yield* Feed
+      return yield* streamRef(feed.ticks)
+    })
+    expectTypeOf(waiting).toEqualTypeOf<
       Effect.Effect<AtomRef.ReadonlyRef<number>, never, Feed | Scope.Scope>
     >()
 

@@ -12,16 +12,21 @@ Public surface (from `index.ts`):
   error discharged), returns `Effect<void, never, R | AtomRegistry | Scope>`
 - `list` — keyed reactive list helper (`View.List` IR node)
 - `Async` / `asyncRef` / `AsyncHandle` — async render boundary + primitive returning `{ state, refetch }` (errors-as-values; see "`asyncRef` / `Async`" below)
-- `streamRef` — `asyncRef`'s push sibling: `streamRef(stream, initial)` runs
+- `streamRef` — `asyncRef`'s push sibling: `streamRef(stream, initial?)` runs
   the stream on the mount fiber (`R` folds; same design rationale as
   `asyncRef` — never `Atom.make(stream)`, whose source must be context-free)
   and returns a `ReadonlyRef<A>` updated per emission; the fiber is
-  `forkScoped`-d, so the Scope IS the unsubscribe. The stream's `E` must be
+  `forkScoped`-d, so the Scope IS the unsubscribe. `initial` mirrors the pull
+  side's blocking-vs-placeholder split: omitted → construction WAITS for the
+  first element (a never-emitting stream blocks — give sparse streams an
+  `initial`); provided → returns immediately, ref holds `initial` until the
+  first emission. The stream's `E` must be
   `never` — a live failure has no honest Effect channel; discharge it with
   `Stream.catch*`/`Stream.retry` (or encode it in `A`) before handing over.
   Derive with the ref's `.map` (equality-deduped notify). Pinned by
-  `testing/stream-ref.test.ts` (latest-emission semantics, derived-ref dedup,
-  scope interruption, the R-fold type, and the `E = never` constraint).
+  `testing/stream-ref.test.ts` (latest-emission semantics, the waiting
+  no-initial form, derived-ref dedup, scope interruption, the R-fold type on
+  both overloads, and the `E = never` constraint).
 - `Catch` — view-level error boundary (one overloaded helper: function 2nd-arg = catch-all, object 2nd-arg = tag-selective; mirrors `Effect.catch*`; see "`Catch`" below)
 - `Fragment` — `<>...</>` compile target (a direct-call component since
   #71: `Fragment({ children: [...] })`, generic over the children tuple —
