@@ -1,9 +1,8 @@
-import { Effect } from "effect"
 import { AtomRef } from "effect/unstable/reactivity"
-import { Async, Catch } from "@verrex/core"
+import { Async, Catch, Component } from "@verrex/core"
 import { lookup } from "./api.ts" // fails with NotFound | RateLimited
 
-export const TagSelective = Effect.fn("TagSelective")(function* () {
+export const TagSelective = Component.make(function* () {
   const userId = AtomRef.make("42")
 
   return yield* (

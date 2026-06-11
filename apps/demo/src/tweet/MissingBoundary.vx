@@ -1,10 +1,9 @@
-import { Effect } from "effect"
-import { Async, mount } from "@verrex/core"
+import { Async, Component, mount } from "@verrex/core"
 import { Http } from "../services.ts"
 
 // A fetch that can fail *after* render — the initial load or any refetch.
 // No `failure` arm, so HttpError rides the live channel: View<HttpError>.
-const UserCard = Effect.fn("UserCard")(function* () {
+const UserCard = Component.make(function* () {
   const http = yield* Http
 
   return yield* (
