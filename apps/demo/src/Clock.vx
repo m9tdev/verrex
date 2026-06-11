@@ -25,16 +25,17 @@ import { Effect, Stream } from "effect"
  * Inferred type: `Effect<View, never, Scope>`
  *   — `Scope` is `streamRef`'s contribution; the tick stream can't fail.
  */
+// Emits the current time at every wall-clock second boundary. The sleep is
+// recomputed from the real clock each cycle (`suspend`), so the ticks stay
+// aligned to real seconds and can't drift.
+const secondTicks: Stream.Stream<Date> = Stream.fromEffectRepeat(
+  Effect.suspend(() => Effect.sleep(1000 - (Date.now() % 1000))).pipe(
+    Effect.map(() => new Date()),
+  ),
+)
+
 export const Clock = Component.make(function* () {
-  const now = yield* streamRef(
-    Stream.fromEffectRepeat(
-      // suspend: re-read the clock each cycle, sleeping to the next boundary
-      Effect.suspend(() => Effect.sleep(1000 - (Date.now() % 1000))).pipe(
-        Effect.map(() => new Date()),
-      ),
-    ),
-    new Date(),
-  )
+  const now = yield* streamRef(secondTicks, new Date())
 
   const second = now.map((d) => d.getSeconds() * 6) // notifies every tick
   const minute = now.map((d) => d.getMinutes() * 6) // …only when the minute turns
