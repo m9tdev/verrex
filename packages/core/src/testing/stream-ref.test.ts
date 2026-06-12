@@ -35,9 +35,7 @@ describe("streamRef", () => {
     // 3 → 5: parity unchanged — the derived ref dedups, only `.n` re-renders
     const parityEl = ui.get(".parity")
     await Effect.runPromise(Queue.offer(queue, 5))
-    await ui.waitFor(".n") // settle
-    await ui.tick()
-    expect(ui.text(".n")).toBe("5")
+    while (ui.text(".n") !== "5") await ui.tick()
     expect(parityEl.getAttribute("data-parity")).toBe("odd")
 
     await ui.unmount()
@@ -94,6 +92,14 @@ describe("streamRef", () => {
     while (ui.text(".n") !== "8") await ui.tick()
 
     await ui.unmount()
+  })
+
+  it("without initial: a stream that ends before emitting dies loud, not hangs", async () => {
+    const Probe = Effect.fn(function* () {
+      const n = yield* streamRef(Stream.empty as Stream.Stream<number>)
+      return yield* h("span", { class: "n" }, n)
+    })
+    await expect(render(Probe())).rejects.toThrow(/ended before its first element/)
   })
 
   it("folds the stream's R into the component (types)", () => {

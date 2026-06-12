@@ -18,9 +18,15 @@ Public surface (from `index.ts`):
   and returns a `ReadonlyRef<A>` updated per emission; the fiber is
   `forkScoped`-d, so the Scope IS the unsubscribe. `initial` mirrors the pull
   side's blocking-vs-placeholder split: omitted → construction WAITS for the
-  first element (a never-emitting stream blocks — give sparse streams an
-  `initial`); provided → returns immediately, ref holds `initial` until the
-  first emission. The stream's `E` must be
+  first element by pulling ON the constructing fiber (`Channel.toPullScoped`
+  — the same shape as a blocking `yield* http.getUser`; no forked producer a
+  closing scope could orphan; a never-emitting stream blocks like a hanging
+  fetch — give sparse streams an `initial`; a stream that ENDS first is a
+  defect, fail-loud); provided → returns immediately, ref holds `initial`
+  until the first emission. Import `streamRef` unaliased — it sits in the
+  compiler's `isSelfTrackingCall` skip set with `Async`/`Catch` (an
+  `h.track` wrap would erase its channels AND respawn the stream per dep
+  change). The stream's `E` must be
   `never` — a live failure has no honest Effect channel; discharge it with
   `Stream.catch*`/`Stream.retry` (or encode it in `A`) before handing over.
   Derive with the ref's `.map` (equality-deduped notify). Pinned by

@@ -113,22 +113,25 @@ interface RewriteState {
 }
 
 /**
- * True when `expr` is a top-level call to a self-tracking boundary helper —
- * `Async(...)` or `Catch(...)`. Both return an `Effect<View, never, R | …>`
- * that must reach the `h()` fold intact, and both manage their own reactivity
- * (`Async` tracks its `from` thunk; `Catch` drives its state from a forked
- * loop). Wrapping either in `h.track` is redundant *and* harmful: `h.track` is
- * typed `(thunk) => unknown`, which erases the channels and drops them from the
- * fold. Same reason `.value.map(...)` → `list(...)` is left unwrapped. The inner
- * `.value` reads are still rewritten to `h.read` (e.g. a `.value` read in a
- * `Catch` fallback or an `Async` thunk).
+ * True when `expr` is a top-level call to an effectful primitive whose call
+ * must never be `h.track`-wrapped — `Async(...)`, `Catch(...)`, or
+ * `streamRef(...)`. All return an `Effect` that must reach the `h()` fold
+ * intact; `h.track` is typed `(thunk) => unknown`, which erases the channels
+ * and drops them from the fold. `Async`/`Catch` additionally manage their own
+ * reactivity (`Async` tracks its `from` thunk; `Catch` drives its state from
+ * a forked loop), so the wrap is redundant for them; for `streamRef` it would
+ * be actively wrong twice over — beyond the erasure, re-running the thunk on
+ * a dep change would *spawn a fresh stream* per change. Same reason
+ * `.value.map(...)` → `list(...)` is left unwrapped. The inner `.value` reads
+ * are still rewritten to `h.read` (e.g. a `.value` read in a `Catch` fallback
+ * or an `Async` thunk).
  *
  * Matched purely by callee name (the compiler has no types). So
  * `import { Async as A }` defeats the skip — `A(...)` would be wrongly
  * `h.track`-wrapped and lose its channels (a loud type error at the call site).
  * Import these unaliased.
  */
-const SELF_TRACKING_HELPERS: ReadonlySet<string> = new Set(["Async", "Catch"])
+const SELF_TRACKING_HELPERS: ReadonlySet<string> = new Set(["Async", "Catch", "streamRef"])
 const isSelfTrackingCall = (expr: t.Expression): boolean =>
   t.isCallExpression(expr) &&
   t.isIdentifier(expr.callee) &&
