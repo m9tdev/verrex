@@ -386,10 +386,11 @@ into a local *before* it (`const id = userId.value; Async(() => http.getUser(id)
 captures a snapshot and won't refetch — ordinary eager-read semantics.
 
 **The compiler skips the `h.track` wrap for `Async(...)` calls** (`isSelfTrackingCall`
-in the compiler — the same guard covers `Catch`) — `Async` self-tracks, and
-`h.track`'s `unknown` return would erase its `Effect<View, never, R | Scope>`
-channels from the `h()` fold. The inner `.value`→`h.read` rewrite is kept (the
-tracker needs it). Matched by callee name, so import `Async`/`Catch` unaliased.
+in the compiler — the same guard covers `Catch`, `asyncRef`, and `streamRef`) —
+`Async` self-tracks, and `h.track`'s `unknown` return would erase its
+`Effect<View, never, R | Scope>` channels from the `h()` fold. The inner
+`.value`→`h.read` rewrite is kept (the tracker needs it). Matched by callee
+name, so import `Async`/`Catch`/`asyncRef`/`streamRef` unaliased.
 
 Neither is a View IR variant. `asyncRef` builds an `AtomRef<AsyncResult>`; `Async`
 maps it through `AsyncResult.match` and returns a `View.Reactive` — the existing

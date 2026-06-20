@@ -52,10 +52,11 @@ Every JSX expression `{...}` triggers up to three local rewrites:
    passes through with no wrap. The `.value.map → list(...)` rewrite
    (#3) also does **not** trigger a wrap — `list()` subscribes inside
    `mount`, so wrapping in `h.track` would be a redundant layer. Same
-   for `Async(...)`, `Catch(...)`, and `streamRef(...)` calls
-   (`isSelfTrackingCall`): all must reach the `h()` fold un-erased —
-   `Async`/`Catch` self-track; for `streamRef` a tracked re-run would
-   additionally spawn a fresh stream per dep change.
+   for `Async(...)`, `Catch(...)`, `asyncRef(...)`, and `streamRef(...)`
+   calls (`isSelfTrackingCall`): all must reach the `h()` fold un-erased
+   — `Async`/`Catch`/`asyncRef` self-track; for `asyncRef`/`streamRef` a
+   tracked re-run would additionally mint a fresh handle / spawn a fresh
+   stream per dep change.
 
 2. **`x.value` → `h.read(x)`** inside the wrapped expression. Tracks
    AtomRef reads. (The *same* read rewrite also runs over the whole
