@@ -8,6 +8,7 @@ import {
   type SyncRunner,
 } from "./coerce.ts"
 import { plan } from "./reconcile.ts"
+import { bindRootSink } from "./reader.ts"
 import { type BoundaryState, type Props, View, type ViewNode } from "./View.ts"
 
 // Stable, scope-independent dependencies threaded through the whole build path.
@@ -746,6 +747,9 @@ export const mount = <R>(
     const sink: ErrorSink = (cause) => {
       Effect.runForkWith(context)(rootSink(cause))
     }
+    // Let a reader's re-render throw reach this sink (as a non-fatal defect)
+    // from inside the synchronous registry read — see reader.ts.
+    bindRootSink(registry, sink)
     const view = yield* Effect.provideService(
       app,
       AtomRegistry.AtomRegistry,

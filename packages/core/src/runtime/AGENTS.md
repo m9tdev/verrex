@@ -260,7 +260,7 @@ set for good (siblings freeze silently) and the throw lands in the writer
 (a handler → its sink). One transient bad frame (`get(user)!.name` while
 `user` is briefly null) is common in JSX, so `h.reader` catches: keep the
 last good value (`ctx.self()`), stay subscribed to whatever the failed run
-did read, `console.error`, recover on the next dep change; a FIRST-read
+did read, report, recover on the next dep change; a FIRST-read
 throw has no last value and becomes `Effect.die(error)` — a live defect for
 the nearest `Catch` / root sink (a nested reader's first read usually happens
 INSIDE a notify cascade, so rethrowing would freeze siblings just the same).
@@ -640,7 +640,14 @@ imperative callback, unchanged. Producer (2) is also _typed_: the
 handler's `E` rides the element's `View<E>` (the props fold), so an
 unboundaried failing handler is a compile error at `mount` — the sink is
 the runtime backstop, not the only line of defense. The reactive
-re-render producer (1) remains runtime-only.
+re-render producer (1) remains runtime-only. A third REPORTER (not a routing
+producer): a **reader's re-render throw** keeps its last value and recovers
+node-locally, so it must not reach a boundary's `report` (that would flip the
+boundary and change recovery) — it goes straight to the ROOT sink as a
+non-fatal `Cause.die`, via a `WeakMap<AtomRegistry, ErrorSink>` in `reader.ts`
+that `mount` populates (`bindRootSink`; the reader finds its registry through
+`ctx.registry`). A reader under a bare registry (no mount — unit tests) falls
+back to `console.error`.
 
 **`subscribeRefScoped` / `subscribeAtomScoped`** are the only two
 ways to subscribe to a reactive source from inside `mount.ts`.
