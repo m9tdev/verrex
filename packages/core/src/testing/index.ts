@@ -142,15 +142,8 @@ const renderImpl = async (
   // harness discharges an undischarged construction error by turning it into a
   // defect, so a component that fails to build (with no boundary) rejects the
   // `render(...)` promise loudly — exactly the failure a test wants to see.
-  // ...and captures the mount's own AtomRegistry (mount creates one per
-  // mount; the app runs inside it) so tests can `registry.set(...)` directly.
-  let registry: AtomRegistry.AtomRegistry | undefined
-  const discharged = Effect.catchCause(
-    Effect.flatMap(AtomRegistry.AtomRegistry, (r) => {
-      registry = r
-      return app
-    }),
-    (cause) => Effect.die(Cause.squash(cause)),
+  const discharged = Effect.catchCause(app, (cause) =>
+    Effect.die(Cause.squash(cause)),
   )
   // Build the caller's layer INTO the harness scope (not `Effect.provide`,
   // which would scope it to the mount effect — an effect that completes as
@@ -158,7 +151,10 @@ const renderImpl = async (
   // The AtomRegistry needs no layer at all: `mount` owns one per mount and
   // disposes it with the same scope.
   const sinkCauses: Array<Cause.Cause<unknown>> = []
-  await Effect.runPromise(
+  // The mount's own AtomRegistry comes back ON the handle — mount's interface,
+  // not a service captured out of the app effect. Reaching around the seam
+  // would break silently (undefined at use) if mount moved its provision.
+  const handle = await Effect.runPromise(
     Scope.provide(
       Effect.flatMap(Layer.build(layer), (ctx) =>
         Effect.provideContext(
@@ -180,7 +176,7 @@ const renderImpl = async (
   return {
     container,
     sinkCauses,
-    registry: registry!,
+    registry: handle.registry,
     get: (s) => el(container, s),
     query: (s) => container.querySelector(s) as HTMLElement | null,
     all: (s) => Array.from(container.querySelectorAll(s)) as HTMLElement[],

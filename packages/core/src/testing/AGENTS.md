@@ -37,7 +37,9 @@ await ui.unmount()
   run the services' finalizers the moment the mount effect completes.
   The `AtomRegistry` needs no layer: `mount` owns one per mount and
   disposes it with the same scope close (see the mount-owns-registry
-  invariant in the runtime AGENTS.md).
+  invariant in the runtime AGENTS.md), and hands it back on the `MountHandle`
+  `mount` succeeds with — that handle is how the harness gets the registry,
+  **never** by capturing the service out of the app effect (#199).
 - `RenderResult` — `get`/`query`/`all`/`text` (DOM queries),
   `click`/`fire` (dispatch bubbling events that hit the component's
   handlers — an `onclick` returning an `Effect` is forked on the mount
@@ -50,7 +52,8 @@ await ui.unmount()
   mid-flight, AND reader re-render throws reported as non-fatal defects —
   `reader-sink.test.ts`), `registry` (the mount's own `AtomRegistry`, so a
   test writes atoms directly — `ui.registry.set(a, v)` — instead of
-  smuggling the registry out of the component).
+  smuggling the registry out of the component; it comes straight off
+  `mount`'s `MountHandle`).
 - **Assert the continuation, not the stub.** A test that only checks a
   stub's side effect (`sink.push` inside `http.send`) goes green even when
   the handler is interrupted right after its first `yield*` — the stub ran
@@ -140,6 +143,11 @@ map handle one tag and let the residual ride to a boundary.
   ambient scope (and `mount` brings its own registry).
 - Don't reach into `RenderResult.container` to mutate the DOM directly;
   drive the component through `click`/`fire` so the reactive path runs.
+- Don't re-derive `mount`'s internals to get at them. If the harness needs
+  something `mount` owns, widen `MountHandle` (deliberately — the runtime
+  AGENTS.md lists what was kept off it and why); a service-capture wrapper
+  around the app effect or a non-null assertion on a captured `let` is the
+  anti-pattern #199 removed.
 
 ## Related context
 

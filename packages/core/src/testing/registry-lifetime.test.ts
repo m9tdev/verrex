@@ -17,22 +17,22 @@ const trackedSpan = (dep: AtomRef.AtomRef<string>) =>
   })
 
 // Mount under a held-open scope (as a real app's long-lived scope would),
-// returning a close function for teardown.
-const mountHeld = async <R>(
-  app: Effect.Effect<void, never, R>,
-): Promise<() => Promise<void>> => {
+// returning mount's handle plus a close function for teardown.
+const mountHeld = async <A, R>(
+  app: Effect.Effect<A, never, R>,
+): Promise<readonly [A, () => Promise<void>]> => {
   const scope = Scope.makeUnsafe()
-  await Effect.runPromise(
-    Scope.provide(app as Effect.Effect<void, never, never>, scope),
+  const value = await Effect.runPromise(
+    Scope.provide(app as Effect.Effect<A, never, never>, scope),
   )
-  return () => Effect.runPromise(Scope.close(scope, Exit.void))
+  return [value, () => Effect.runPromise(Scope.close(scope, Exit.void))]
 }
 
 describe("mount owns the AtomRegistry", () => {
   it("mounts and stays reactive with no registry provided", async () => {
     const dep = AtomRef.make("a")
     const el = document.createElement("div")
-    const close = await mountHeld(mount(trackedSpan(dep), el))
+    const [, close] = await mountHeld(mount(trackedSpan(dep), el))
     expect(el.querySelector("span")!.textContent).toBe("a")
     dep.set("b")
     expect(el.querySelector("span")!.textContent).toBe("b")
@@ -42,7 +42,7 @@ describe("mount owns the AtomRegistry", () => {
   it("a component's `yield* AtomRegistry` resolves to the mount's own live registry", async () => {
     const el = document.createElement("div")
     let seen: AtomRegistry.AtomRegistry | undefined
-    const close = await mountHeld(
+    const [, close] = await mountHeld(
       mount(
         Effect.gen(function* () {
           seen = yield* AtomRegistry.AtomRegistry
@@ -64,7 +64,7 @@ describe("mount owns the AtomRegistry", () => {
     const el = document.createElement("div")
     document.body.appendChild(el)
     let registry: AtomRegistry.AtomRegistry | undefined
-    const close = await mountHeld(
+    const [, close] = await mountHeld(
       mount(
         Effect.gen(function* () {
           registry = yield* AtomRegistry.AtomRegistry
@@ -84,5 +84,32 @@ describe("mount owns the AtomRegistry", () => {
     // silent freeze of a still-visible UI (the UI is gone).
     expect(() => registry!.get(Atom.make(1))).toThrow(/disposed/i)
     el.remove()
+  })
+
+  it("hands the registry back on the mount handle — the same one the component sees", async () => {
+    const el = document.createElement("div")
+    let seen: AtomRegistry.AtomRegistry | undefined
+    // The handle is mount's OWN interface: no service-capture trick, no
+    // non-null assertion. If mount ever moves where it provides the registry,
+    // this breaks as a type error, not an undefined at use (#199).
+    const [handle, close] = await mountHeld(
+      mount(
+        Effect.gen(function* () {
+          seen = yield* AtomRegistry.AtomRegistry
+          return yield* h("span", {}, "x")
+        }),
+        el,
+      ),
+    )
+    expect(handle.registry).toBe(seen)
+    // Writes through the handle drive the mounted tree.
+    const size = Atom.make(1)
+    expect(handle.registry.get(size)).toBe(1)
+    handle.registry.set(size, 2)
+    expect(handle.registry.get(size)).toBe(2)
+    await close()
+    // The handle's registry dies with the mount scope — no way to keep a
+    // disposed registry alive by holding the handle.
+    expect(() => handle.registry.get(Atom.make(1))).toThrow(/disposed/i)
   })
 })

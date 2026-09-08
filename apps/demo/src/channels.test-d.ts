@@ -23,6 +23,7 @@ import {
   h,
   On,
   mount,
+  type MountHandle,
   type View,
 } from "@verrex/core"
 import { AsyncEscalate } from "./AsyncEscalate.vx"
@@ -609,8 +610,12 @@ assertEquals<
 >()
 assertEquals<
   ReturnType<typeof mount<AtomRegistry.AtomRegistry>>,
-  Effect.Effect<void, never, Scope.Scope>
+  Effect.Effect<MountHandle, never, Scope.Scope>
 >()
+//     …and the mount's own registry rides back out on the handle, so a caller
+//     outside the tree (the testing harness) reaches it through mount's
+//     interface rather than capturing the service out of the app effect.
+assertEquals<MountHandle["registry"], AtomRegistry.AtomRegistry>()
 mount(RegistryUser, root)
 
 // ─── Atom carriers: the COMPONENT owns the requirements ──────────────────
