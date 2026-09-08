@@ -46,8 +46,9 @@ await ui.unmount()
   pins this), `tick()` (flush a macrotask so async/atom updates settle),
   `unmount()` (close the scope → fire every finalizer → detach),
   `sinkCauses` (every `Cause` the root sink received, via `mount`'s
-  `RootSink` reference: uncaught live failures AND handlers interrupted
-  mid-flight), `registry` (the mount's own `AtomRegistry`, so a
+  `RootSink` reference: uncaught live failures, handlers interrupted
+  mid-flight, AND reader re-render throws reported as non-fatal defects —
+  `reader-sink.test.ts`), `registry` (the mount's own `AtomRegistry`, so a
   test writes atoms directly — `ui.registry.set(a, v)` — instead of
   smuggling the registry out of the component).
 - **Assert the continuation, not the stub.** A test that only checks a

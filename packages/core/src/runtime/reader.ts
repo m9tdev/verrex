@@ -1,6 +1,6 @@
-import { Effect, Option } from "effect"
-import { Atom, type AtomRef } from "effect/unstable/reactivity"
-import { bridgeAtom, isAtomRef } from "./coerce.ts"
+import { Cause, Effect, Option } from "effect"
+import { Atom, AtomRegistry, type AtomRef } from "effect/unstable/reactivity"
+import { bridgeAtom, isAtomRef, type ErrorSink } from "./coerce.ts"
 
 // ─── the ambient reader: h.reader + get ──────────────────────────────────
 //
@@ -33,6 +33,25 @@ export type Get = <A>(source: Atom.Atom<A> | AtomRef.ReadonlyRef<A>) => A
 // read (an `Atom.map`/`Atom.readable` body) throws instead of silently
 // recording its dep on the outer reader (where it would never re-track).
 const readers: Array<Get | null> = []
+
+// The mount's ROOT sink, keyed by the mount's `AtomRegistry` (one per mount,
+// so the key is unique). A reader's RE-render throw keeps the last value and
+// recovers node-locally, so it must NOT reach a `Catch` boundary's `report`
+// (that would flip the boundary — recovery would change); it is reported to
+// the root sink as a non-fatal defect instead. The reader reaches its
+// registry via `ctx.registry` (AtomContext), which is what makes the lookup
+// possible from inside a synchronous registry read. A reader running under a
+// bare registry (no mount — unit tests) has no sink bound and falls back to
+// `console.error`.
+const rootSinks = new WeakMap<AtomRegistry.AtomRegistry, ErrorSink>()
+
+/** @internal Bind a mount's root sink to its registry. Called by `mount`. */
+export const bindRootSink = (
+  registry: AtomRegistry.AtomRegistry,
+  sink: ErrorSink,
+): void => {
+  rootSinks.set(registry, sink)
+}
 
 /**
  * Read an atom or ref inside a reactive JSX expression. The compiler wraps
@@ -93,11 +112,16 @@ export const reader = <A>(_read: () => A): Atom.Atom<A> =>
     } catch (error) {
       const previous = ctx.self<A>()
       if (Option.isNone(previous)) return Effect.die(error) as A
-      console.error(
-        "[verrex] a reader threw while re-rendering; " +
-          "the node kept its last value and will retry on the next dep change.",
-        error,
-      )
+      const sink = rootSinks.get(ctx.registry)
+      if (sink) {
+        sink(Cause.die(error))
+      } else {
+        console.error(
+          "[verrex] a reader threw while re-rendering; " +
+            "the node kept its last value and will retry on the next dep change.",
+          error,
+        )
+      }
       return previous.value
     } finally {
       readers.pop()
