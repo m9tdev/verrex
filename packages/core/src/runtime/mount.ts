@@ -702,24 +702,16 @@ export const RootSink = Context.Reference<
 
 /**
  * What a completed `mount` hands back: the internals a caller legitimately
- * needs to drive the mounted tree from outside it.
- *
- * Deliberately narrow. Teardown is NOT here — the ambient `Scope` owns it
- * (close the scope and the DOM detaches, every finalizer fires, the registry
- * is disposed), and a second `unmount()` door would be a competing lifecycle.
- * The `RootSink` isn't here either: the caller provides it AROUND `mount`, so
- * it already holds it. Add a field only when reaching around the seam is the
- * alternative — that is the bar this interface exists to enforce.
+ * needs to drive the mounted tree from outside it. Deliberately narrow — what
+ * is deliberately NOT on it, and the bar for adding a field, are in the
+ * runtime AGENTS.md ("mount owns its AtomRegistry").
  */
 export interface MountHandle {
   /**
-   * The `AtomRegistry` this mount created and owns. Live until the mount scope
-   * closes (which disposes it). A test writes atoms through it
-   * (`registry.set(a, v)`) against the SAME instance the tree subscribed on;
-   * before this existed, the testing harness had to capture the registry by
-   * flat-mapping the service out of the app effect — a reach-around that broke
-   * silently (an `undefined` deref, not a type error) whenever `mount` moved
-   * where it provides the registry.
+   * The `AtomRegistry` this mount created and owns — the same instance the
+   * rendered tree subscribed on, so a write through it
+   * (`registry.set(a, v)`) drives the DOM. Live until the mount scope closes,
+   * which disposes it.
    */
   readonly registry: AtomRegistry.AtomRegistry
 }
@@ -745,9 +737,7 @@ export interface MountHandle {
  * so a mis-scoped provision can't freeze a live UI. A component's
  * `yield* AtomRegistry.AtomRegistry` resolves to the mount's own registry
  * (it is provided to the app effect, and discharged from `R` here). It is also
- * handed back on the {@link MountHandle} this effect succeeds with, so a
- * caller outside the tree (the testing harness) reaches it through mount's
- * own interface instead of smuggling the service out of the app effect.
+ * handed back on the {@link MountHandle} this effect succeeds with.
  *
  * **Requires `Effect<View<never>, never, R>`** — the app must have every error
  * discharged: construction failures off the Effect `E` channel (via
@@ -803,5 +793,5 @@ export const mount = <R>(
         if (node.parentNode === el) el.removeChild(node)
       }),
     )
-    return { registry } satisfies MountHandle
+    return { registry }
   })

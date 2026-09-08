@@ -152,8 +152,7 @@ const renderImpl = async (
   // disposes it with the same scope.
   const sinkCauses: Array<Cause.Cause<unknown>> = []
   // The mount's own AtomRegistry comes back ON the handle — mount's interface,
-  // not a service captured out of the app effect. Reaching around the seam
-  // would break silently (undefined at use) if mount moved its provision.
+  // not a service captured out of the app effect.
   const handle = await Effect.runPromise(
     Scope.provide(
       Effect.flatMap(Layer.build(layer), (ctx) =>

@@ -33,7 +33,8 @@ own)` — the atom keeps its own `Scope`/`AtomRegistry`, so an atom-body
   latest, span parent).
 - `mount` — DOM renderer. **Requires `Effect<View<never>, never, R>`** (every
   error discharged), succeeds with a `MountHandle` —
-  `Effect<MountHandle, never, R | AtomRegistry | Scope>`
+  `Effect<MountHandle, never, Exclude<R, AtomRegistry> | Scope>` (the
+  `Exclude` is the registry discharge — see below)
 - `For` — the keyed reactive list component (`View.List` IR node, `ListSource` = `Collection` | `Keyed`). Two
   overloads: `each: AtomRef.Collection<T>` (rows are the refs, keyed by
   identity, no `key`) and `each: Atom<ReadonlyArray<T>>` + `key` (rows are
