@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.4.0](https://github.com/m9tdev/verrex/compare/core-v0.3.0...core-v0.4.0) (2026-09-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* reactivity API rewrite — atom/fn/get/For/On/Catch replace Async/asyncRef/streamRef/list/h.track/h.read/VerrexLive and the .value compiler rewrites. Rationale in packages/core/src/runtime/AGENTS.md (Reactivity model).
+* **runtime:** mount owns its AtomRegistry ([#167](https://github.com/m9tdev/verrex/issues/167)) mount's R used to REQUIRE AtomRegistry without being able to express that it must OUTLIVE the mount effect — so the natural `mount(...).pipe(Effect.provide(VerrexLive))` type-checked, disposed the registry the moment the DOM attached, and silently froze the live UI. The type system could not encode the lifetime requirement, so this deletes the requirement instead: - mount creates its own registry, provides it to the app effect (a component's `yield* AtomRegistry` resolves to it), and discharges it from the app's R via Exclude - disposal is a finalizer registered BEFORE buildDom, so LIFO scope close detaches the DOM and tears down child subscriptions against a still-live registry, disposing it last — the UI and its reactivity always die together - the footgun shape is now a no-op (VerrexLive is deprecated, kept as a compat layer); the disposed-registry error rewrite goes away with the failure mode it guarded Pins: registry-lifetime.test.ts (no provision needed; footgun shape stays reactive; yield* resolves to mount's live registry; scope close detaches DOM and disposes the registry together — all four fail under the old shape) plus a channels.test-d.ts assertion that mount discharges AtomRegistry from R. BREAKING CHANGE: mount no longer accepts an externally provided AtomRegistry. `Effect.provide(VerrexLive)` around mount is now harmless but unused; VerrexLive is deprecated and will be removed in a future release. (#173)
+
+### Features
+
+* reactivity migration — effect-atom API with caller-owned R/E ([#195](https://github.com/m9tdev/verrex/issues/195)) ([9e16f86](https://github.com/m9tdev/verrex/commit/9e16f86ebf1257bfeea80cdf61d4ba85a06f61b5))
+* **runtime,testing:** RootSink reference + ui.sinkCauses; handler interrupts reach the sink ([#191](https://github.com/m9tdev/verrex/issues/191)) ([59ea302](https://github.com/m9tdev/verrex/commit/59ea30207c030856c4b9f272a8eb2328e0fb1bed))
+* **runtime:** streamRef — asyncRef's push sibling for Stream ([#124](https://github.com/m9tdev/verrex/issues/124)) ([3b66e29](https://github.com/m9tdev/verrex/commit/3b66e296e651470906c70888379689c3d201ad48))
+
+
+### Bug Fixes
+
+* **runtime:** fold Async arm / Catch fallback R onto the boundary ([#120](https://github.com/m9tdev/verrex/issues/120)) ([#192](https://github.com/m9tdev/verrex/issues/192)) ([541f549](https://github.com/m9tdev/verrex/commit/541f5490a1310bb37606990cc07795a6185722ec))
+* **runtime:** per-dispatch handler scope owned by the constructing node ([#185](https://github.com/m9tdev/verrex/issues/185)) ([79a0fac](https://github.com/m9tdev/verrex/commit/79a0fac59b894eaed68615132e637b8564697b93))
+* **runtime:** report reader re-render throws to the root sink ([#203](https://github.com/m9tdev/verrex/issues/203)) ([59ec94b](https://github.com/m9tdev/verrex/commit/59ec94bf5c628364af2e5a627680ae302a8aa168))
+
+
+### Code Refactoring
+
+* **runtime:** mount owns its AtomRegistry ([#167](https://github.com/m9tdev/verrex/issues/167)) mount's R used to REQUIRE AtomRegistry without being able to express that it must OUTLIVE the mount effect — so the natural `mount(...).pipe(Effect.provide(VerrexLive))` type-checked, disposed the registry the moment the DOM attached, and silently froze the live UI. The type system could not encode the lifetime requirement, so this deletes the requirement instead: - mount creates its own registry, provides it to the app effect (a component's `yield* AtomRegistry` resolves to it), and discharges it from the app's R via Exclude - disposal is a finalizer registered BEFORE buildDom, so LIFO scope close detaches the DOM and tears down child subscriptions against a still-live registry, disposing it last — the UI and its reactivity always die together - the footgun shape is now a no-op (VerrexLive is deprecated, kept as a compat layer); the disposed-registry error rewrite goes away with the failure mode it guarded Pins: registry-lifetime.test.ts (no provision needed; footgun shape stays reactive; yield* resolves to mount's live registry; scope close detaches DOM and disposes the registry together — all four fail under the old shape) plus a channels.test-d.ts assertion that mount discharges AtomRegistry from R. BREAKING CHANGE: mount no longer accepts an externally provided AtomRegistry. `Effect.provide(VerrexLive)` around mount is now harmless but unused; VerrexLive is deprecated and will be removed in a future release. ([#173](https://github.com/m9tdev/verrex/issues/173)) ([2436294](https://github.com/m9tdev/verrex/commit/2436294428412fea0715c0e5fd31943963e0efd9))
+
 ## [0.3.0](https://github.com/m9tdev/verrex/compare/core-v0.2.0...core-v0.3.0) (2026-07-20)
 
 
