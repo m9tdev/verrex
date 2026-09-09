@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, expectTypeOf, it } from "vitest"
 import { Cause, Data, Deferred, Effect } from "effect"
-import { AsyncResult, Atom, AtomRegistry } from "effect/unstable/reactivity"
+import { AsyncResult, Atom } from "effect/unstable/reactivity"
 import { atom, Catch, h, mount, type View } from "@verrex/core"
 import { render } from "./index.ts"
 
@@ -93,11 +93,10 @@ describe("atom → typed live escalation", () => {
     const el = null as unknown as HTMLElement
     // @ts-expect-error live NotFound is not discharged
     mount(unhandled, el)
-    mount(
-      leaf.pipe(
-        Effect.provideService(AtomRegistry.AtomRegistry, AtomRegistry.make()),
-      ),
-      el,
-    )
+    // No registry provide: `mount` discharges `AtomRegistry` from `R` itself.
+    // Providing one here would typecheck too, but it is the anti-pattern —
+    // an app-level registry splits the brain (runtime AGENTS.md, "mount owns
+    // its AtomRegistry").
+    mount(leaf, el)
   })
 })

@@ -739,6 +739,14 @@ export interface MountHandle {
  * (it is provided to the app effect, and discharged from `R` here). It is also
  * handed back on the {@link MountHandle} this effect succeeds with.
  *
+ * **Never provide a registry yourself.** One provided AROUND `mount` is
+ * silently ignored (mount's own provide is inner, so it wins); one provided
+ * INSIDE the app splits the brain — the component resolves yours while the
+ * rendered tree subscribes on mount's, so writes through yours are inert with
+ * no error. Neither is catchable at the type level (a provide erases the
+ * service from `R`). Write through `handle.registry`; see the runtime
+ * AGENTS.md, "mount owns its AtomRegistry".
+ *
  * **Requires `Effect<View<never>, never, R>`** — the app must have every error
  * discharged: construction failures off the Effect `E` channel (via
  * `Effect.catchCause` or a `Catch` boundary) and live failures off the

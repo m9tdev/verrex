@@ -241,6 +241,31 @@ tree.** `mount` succeeds with `{ registry }`; the testing harness reads
 `captured!` deref) — a reach-around that would have broken as an `undefined`
 at use, not a type error, the moment `mount` moved its provision.
 
+**Never provide an `AtomRegistry` yourself — both ways of doing it fail
+silently.** Verified behaviour, not theory:
+
+- **Around `mount`** (`Effect.provideService(mount(app, el), AtomRegistry,
+mine)`) — silently IGNORED. Mount's own provide is inner, so it wins;
+  `mine.set(a, v)` moves nothing and `handle.registry !== mine`. The write
+  you want is `handle.registry.set(a, v)`.
+- **Inside the app** (`App.pipe(Effect.provideService(AtomRegistry, mine))`)
+  — a SPLIT BRAIN. The component's `yield* AtomRegistry` resolves to yours,
+  but `BuildCtx.registry` (what every `Reactive` node and `applyProp`
+  subscribes on) is mount's. Writes through yours are inert; the DOM never
+  updates and nothing errors. Same wrong-value-no-error class as #156.
+
+Neither is preventable, and the reasons are structural — don't re-litigate
+them without new information:
+
+- **Not at the type level.** Providing a service erases it from `R`, so
+  `mount<R>` cannot tell "never needed a registry" from "already got one".
+- **Not once per mount.** An inner `provideService` is invisible from
+  outside — it doesn't leak into mount's continuation — so mount cannot
+  observe the app's effective registry. Detection would have to sit at a
+  per-element site (`h`) and pay a context lookup on every render, to catch
+  a misuse nobody needs to commit: `mount` discharges `AtomRegistry` from
+  `R`, so nothing ever has to provide one.
+
 The handle stays deliberately narrow, and the bar for a new field is "the
 alternative is reaching around the seam":
 
