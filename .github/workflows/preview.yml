@@ -43,7 +43,7 @@ jobs:
       pull-requests: write # comment the preview URL on the PR
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: audit
 
@@ -54,7 +54,7 @@ jobs:
       # Build only when deploying (open/reopen/synchronize); on `closed` the
       # preview action just removes the subtree, no build needed.
       - if: github.event.action != 'closed'
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 11.3.0
           run_install: false

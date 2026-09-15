@@ -29,7 +29,7 @@ jobs:
       contents: write
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: audit
 
@@ -40,7 +40,7 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
 
-      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 11.3.0
           run_install: false
@@ -54,7 +54,7 @@ jobs:
       - run: pnpm --filter verrex-demo exec vite build --base=/verrex/
 
       - name: Publish to gh-pages
-        uses: JamesIves/github-pages-deploy-action@d92aa235d04922e8f08b40ce78cc5442fcfbfa2f # v4.8.0
+        uses: JamesIves/github-pages-deploy-action@fa24774553152dd7873cd16ebd8d959b010c5445 # v4.9.0
         with:
           branch: gh-pages
           folder: apps/demo/dist
