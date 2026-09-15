@@ -37,7 +37,7 @@
     "@verrex/core": "workspace:*",
     "@volar/language-core": "^2.4.28",
     "@volar/typescript": "^2.4.28",
-    "esbuild": "^0.28.1",
+    "esbuild": "^0.28.2",
     "typescript": "^6.0.3"
   },
   "peerDependencies": {
