@@ -21,7 +21,7 @@ export {
   type TagHandlers as OnArms,
 } from "./on.ts"
 export { atom, fn, type Fn, type AtomOptions, type FnOptions } from "./atom.ts"
-export { mount, RootSink } from "./mount.ts"
+export { mount, type MountHandle, RootSink } from "./mount.ts"
 export { type Props, View } from "./View.ts"
 // `For`, `Catch`, `Fragment` are declared + exported below.
 export type {

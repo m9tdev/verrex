@@ -701,6 +701,22 @@ export const RootSink = Context.Reference<
 })
 
 /**
+ * What a completed `mount` hands back: the internals a caller legitimately
+ * needs to drive the mounted tree from outside it. Deliberately narrow — what
+ * is deliberately NOT on it, and the bar for adding a field, are in the
+ * runtime AGENTS.md ("mount owns its AtomRegistry").
+ */
+export interface MountHandle {
+  /**
+   * The `AtomRegistry` this mount created and owns — the same instance the
+   * rendered tree subscribed on, so a write through it
+   * (`registry.set(a, v)`) drives the DOM. Live until the mount scope closes,
+   * which disposes it.
+   */
+  readonly registry: AtomRegistry.AtomRegistry
+}
+
+/**
  * Run the app Effect, build the DOM, and attach to the target element.
  *
  * Cleanup is handled entirely through the ambient `Scope`. Every subscription,
@@ -720,7 +736,16 @@ export const RootSink = Context.Reference<
  * detaches the DOM — the registry and the UI it drives always die together,
  * so a mis-scoped provision can't freeze a live UI. A component's
  * `yield* AtomRegistry.AtomRegistry` resolves to the mount's own registry
- * (it is provided to the app effect, and discharged from `R` here).
+ * (it is provided to the app effect, and discharged from `R` here). It is also
+ * handed back on the {@link MountHandle} this effect succeeds with.
+ *
+ * **Never provide a registry yourself.** One provided AROUND `mount` is
+ * silently ignored (mount's own provide is inner, so it wins); one provided
+ * INSIDE the app splits the brain — the component resolves yours while the
+ * rendered tree subscribes on mount's, so writes through yours are inert with
+ * no error. Neither is catchable at the type level (a provide erases the
+ * service from `R`). Write through `handle.registry`; see the runtime
+ * AGENTS.md, "mount owns its AtomRegistry".
  *
  * **Requires `Effect<View<never>, never, R>`** — the app must have every error
  * discharged: construction failures off the Effect `E` channel (via
@@ -733,7 +758,7 @@ export const mount = <R>(
   app: Effect.Effect<View<never>, never, R>,
   el: HTMLElement,
 ): Effect.Effect<
-  void,
+  MountHandle,
   never,
   Exclude<R, AtomRegistry.AtomRegistry> | Scope.Scope
 > =>
@@ -776,4 +801,5 @@ export const mount = <R>(
         if (node.parentNode === el) el.removeChild(node)
       }),
     )
+    return { registry }
   })
