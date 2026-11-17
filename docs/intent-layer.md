@@ -188,7 +188,7 @@ agents get finetuned through better context, not expensive model training.
 
 Different tools auto-load different files:
 
-- Claude Code: `CLAUDE.md`
+- Claude Code: `CLAUDE.md`, or `AGENTS.md` when a folder has no `CLAUDE.md`
 - Codex: `AGENTS.md`
 - Cursor: rules and skill files
 
@@ -201,31 +201,17 @@ Survey your team's tools and ensure nodes auto-load everywhere. Options:
 Avoid duplicating content across every filetype—this bloats the layer and
 creates drift.
 
-### Claude Code specifics (what this repo does)
+### What this repo does
 
-Claude Code auto-loads nested `CLAUDE.md` files on demand but does **not**
-read nested `AGENTS.md` — only the root-level `CLAUDE.md → AGENTS.md`
-symlink covers the root node. This repo closes the gap with a generic
-**PostToolUse hook** (`.claude/hooks/inject-intent-node.sh`, wired in
-`.claude/settings.json`): after any file Read/Edit/Write it walks up from
-the touched file to the nearest `AGENTS.md` and injects that node into
-context, deduplicated per node per session. Zero per-node maintenance —
-new nodes are discovered automatically. (Nearest-node injection plus the
-always-loaded root equals the full ancestor chain here, since the tree
-has no intermediate nodes; if one is ever added between root and a leaf,
-extend the hook to inject every node on the walk up.)
+`AGENTS.md` is the only node filename: no `CLAUDE.md`, not even as a
+symlink, and no hooks. Claude Code loads `AGENTS.md` exactly where and how it
+would load `CLAUDE.md` when a folder has none: the root node and its
+ancestors at session start, nested nodes on demand when the agent reads
+files in that folder. New nodes need no registration.
 
-The alternatives, and why the hook wins:
-
-- **Per-directory `CLAUDE.md` symlinks** — work natively (Claude Code loads
-  nested `CLAUDE.md` on demand) but litter the tree with one symlink per
-  node. Use this if the hook is ever unavailable.
-- **`.claude/rules/` with `@`-imports** — do NOT use: imports expand
-  eagerly at session start regardless of `paths` scoping, loading the whole
-  node tree into every session.
-- **`.claude/rules/` pointer instructions** — lazy and correct, but need a
-  mapping rule per node (a brittle parallel structure) and rely on the agent
-  following the instruction rather than mechanical injection.
+Do not use `.claude/rules/` with `@`-imports for nodes: imports expand
+eagerly at session start regardless of `paths` scoping, loading the whole
+node tree into every session.
 
 ## Naive vs. Effective Implementation
 

@@ -263,17 +263,11 @@ Signs an AGENTS.md needs updating:
 - A section describes behavior that no longer matches the code
 - You added a new subsystem that warrants its own node
 
-The root `CLAUDE.md` is a symlink to `AGENTS.md` — no need to maintain both.
+`AGENTS.md` is the only agent-instructions file; there is no `CLAUDE.md`.
 
-Claude Code does not auto-load nested `AGENTS.md` files (only the root,
-via the symlink). The checked-in PostToolUse hook
-[`.claude/hooks/inject-intent-node.sh`](./.claude/hooks/inject-intent-node.sh)
-closes that gap: after any file Read/Edit/Write it finds the nearest
-`AGENTS.md` above the touched file and injects it into context, once per
-node per session. It is fully generic — **a new node anywhere is picked
-up automatically, no registration needed** (see
-`docs/intent-layer.md` § File Naming for the verified behavior and the
-approaches that were rejected).
+Claude Code, Codex and other agents load `AGENTS.md` natively: the root
+node at session start, nested nodes when they work in that folder. A new
+node anywhere is picked up automatically, no registration or hooks needed.
 
 ## Anti-patterns at the root
 
