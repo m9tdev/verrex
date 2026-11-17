@@ -1,6 +1,6 @@
 {
   "name": "@verrex/ts-plugin",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Volar-based TypeScript Language Service plugin for .vx files — diagnostics, hover, go-to-definition, find-references, inlay hints, and JSX tag-pair highlights.",
   "keywords": [
     "effect",
