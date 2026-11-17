@@ -203,23 +203,24 @@ creates drift.
 
 ### Claude Code specifics (what this repo does)
 
-Claude Code auto-loads nested `CLAUDE.md` files on demand but does **not**
-read nested `AGENTS.md` — only the root-level `CLAUDE.md → AGENTS.md`
-symlink covers the root node. This repo closes the gap with a generic
-**PostToolUse hook** (`.claude/hooks/inject-intent-node.sh`, wired in
-`.claude/settings.json`): after any file Read/Edit/Write it walks up from
-the touched file to the nearest `AGENTS.md` and injects that node into
-context, deduplicated per node per session. Zero per-node maintenance —
-new nodes are discovered automatically. (Nearest-node injection plus the
-always-loaded root equals the full ancestor chain here, since the tree
-has no intermediate nodes; if one is ever added between root and a leaf,
-extend the hook to inject every node on the walk up.)
+Claude Code auto-loads `CLAUDE.md` files but never `AGENTS.md`. This repo
+keeps `AGENTS.md` as the only node filename (no `CLAUDE.md`, not even as a
+symlink) and loads nodes with two generic hooks wired in
+`.claude/settings.json`: a **SessionStart hook**
+(`.claude/hooks/inject-root-node.sh`) injects the root node, and a
+**PostToolUse hook** (`.claude/hooks/inject-intent-node.sh`) walks up from
+any file Read/Edit/Write to the nearest nested `AGENTS.md` and injects that
+node, deduplicated per node per session. Zero per-node maintenance — new
+nodes are discovered automatically. (Nearest-node injection plus the root
+equals the full ancestor chain here, since the tree has no intermediate
+nodes; if one is ever added between root and a leaf, extend the hook to
+inject every node on the walk up.)
 
 The alternatives, and why the hook wins:
 
-- **Per-directory `CLAUDE.md` symlinks** — work natively (Claude Code loads
-  nested `CLAUDE.md` on demand) but litter the tree with one symlink per
-  node. Use this if the hook is ever unavailable.
+- **`CLAUDE.md` files or symlinks** — work natively (Claude Code loads
+  `CLAUDE.md` on demand) but split instructions across two filenames and
+  litter the tree. Not used here.
 - **`.claude/rules/` with `@`-imports** — do NOT use: imports expand
   eagerly at session start regardless of `paths` scoping, loading the whole
   node tree into every session.

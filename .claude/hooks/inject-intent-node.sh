@@ -2,18 +2,17 @@
 # PostToolUse hook: after a file Read/Edit/Write, find the nearest AGENTS.md
 # (intent node) above the touched file and inject it into context, once per
 # node per session. Generic — adding a new AGENTS.md anywhere needs no
-# registration. Claude Code only auto-loads nested CLAUDE.md, never nested
-# AGENTS.md; this hook closes that gap mechanically.
+# registration. Claude Code never auto-loads AGENTS.md; this hook closes that
+# gap mechanically for nested nodes.
 set -euo pipefail
 
 INPUT=$(cat)
 FILE=$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty')
 [ -z "$FILE" ] && exit 0
 
-# The intent nodes themselves (and the root CLAUDE.md symlink) don't need
-# re-injection when read directly.
+# The intent nodes themselves don't need re-injection when read directly.
 case "$FILE" in
-  */AGENTS.md | */CLAUDE.md) exit 0 ;;
+  */AGENTS.md) exit 0 ;;
 esac
 
 ROOT=$(printf '%s' "$INPUT" | jq -r '.cwd // empty')
@@ -34,8 +33,8 @@ while [ "$DIR" != "$ROOT" ] && [ "$DIR" != "/" ]; do
   fi
   DIR=$(dirname "$DIR")
 done
-# No nested node → covered by the root node, which auto-loads via the
-# CLAUDE.md symlink.
+# No nested node → covered by the root node, injected at session start by
+# inject-root-node.sh.
 [ -z "$NODE" ] && exit 0
 
 HASH=$(printf '%s' "$NODE" | cksum | cut -d' ' -f1)
