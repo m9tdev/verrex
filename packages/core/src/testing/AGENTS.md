@@ -37,7 +37,8 @@ await ui.unmount()
   run the services' finalizers the moment the mount effect completes.
   The `AtomRegistry` needs no layer: `mount` owns one per mount and
   disposes it with the same scope close (see the mount-owns-registry
-  invariant in the runtime AGENTS.md).
+  invariant in the runtime AGENTS.md), and hands it back on the `MountHandle`
+  `mount` succeeds with — that handle is how the harness gets the registry.
 - `RenderResult` — `get`/`query`/`all`/`text` (DOM queries),
   `click`/`fire` (dispatch bubbling events that hit the component's
   handlers — an `onclick` returning an `Effect` is forked on the mount
@@ -50,7 +51,8 @@ await ui.unmount()
   mid-flight, AND reader re-render throws reported as non-fatal defects —
   `reader-sink.test.ts`), `registry` (the mount's own `AtomRegistry`, so a
   test writes atoms directly — `ui.registry.set(a, v)` — instead of
-  smuggling the registry out of the component).
+  smuggling the registry out of the component; it comes straight off
+  `mount`'s `MountHandle`).
 - **Assert the continuation, not the stub.** A test that only checks a
   stub's side effect (`sink.push` inside `http.send`) goes green even when
   the handler is interrupted right after its first `yield*` — the stub ran
@@ -101,6 +103,15 @@ in `unmount()` — so a test can assert that finalizers fire on teardown
 `Effect.scoped` would close the scope as soon as `mount` returned, tearing
 the component down before you could drive it.
 
+**This is not duplicated mount wiring.** `mount` never makes a `Scope`,
+builds a `Layer`, or installs a `RootSink` — it _requires_ `Scope` and
+_reads_ `RootSink` from its context. So the harness's `Scope.makeUnsafe()` +
+`Layer.build`-into-scope + `provideService(RootSink, …)` is not a re-derived
+copy of mount's internals; it is what every app root does (`apps/demo`'s
+`setupDemo` has the same shape). Factoring it out would mean inventing a
+root-runner API the framework deliberately doesn't ship — see "API surface
+stays minimal" in the root AGENTS.md.
+
 ## Shared fixtures (`fixtures.ts`)
 
 Test-only scaffolds — **not** exported from the package and excluded in
@@ -140,6 +151,13 @@ map handle one tag and let the residual ride to a boundary.
   ambient scope (and `mount` brings its own registry).
 - Don't reach into `RenderResult.container` to mutate the DOM directly;
   drive the component through `click`/`fire` so the reactive path runs.
+- Don't capture a service out of the app effect to get at something `mount`
+  owns (a wrapper that stashes it in a `let`, plus a `captured!` deref). It
+  breaks as an `undefined` at use, not a type error, when mount moves its
+  provision. Read it off the `MountHandle`, or widen the handle deliberately
+  — the runtime AGENTS.md lists what was kept off it and why. Resolving the
+  registry _inside_ a component to use it there (a handler write) is fine and
+  not this smell.
 
 ## Related context
 

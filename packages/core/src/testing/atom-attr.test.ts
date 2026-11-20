@@ -42,11 +42,7 @@ describe("Atom-valued attrs", () => {
   it("ties the subscription to the element scope: a swapped-away node stops receiving", async () => {
     const n = Atom.make(0)
     const show = AtomRef.make(true)
-    // Capture the component's own registry so the writes go through the SAME
-    // instance the attr subscribed on (a fresh registry would pass vacuously).
-    let reg!: AtomRegistry.AtomRegistry
     const Probe = Effect.fn(function* () {
-      reg = yield* AtomRegistry.AtomRegistry
       return yield* h(
         "div",
         {},
@@ -58,11 +54,13 @@ describe("Atom-valued attrs", () => {
       )
     })
 
+    // Writes go through `ui.registry` — the mount's own registry, the SAME
+    // instance the attr subscribed on (a fresh registry would pass vacuously).
     const ui = await render(Probe())
     const probe = ui.get("#probe")
     expect(probe.getAttribute("data-n")).toBe("0")
 
-    reg.set(n, 1)
+    ui.registry.set(n, 1)
     await ui.waitFor('[data-n="1"]')
 
     // Swap the subtree away: the Reactive emit closes the old child scope,
@@ -70,7 +68,7 @@ describe("Atom-valued attrs", () => {
     // alive — a further write must not reach the detached node.
     show.set(false)
     await ui.waitFor(".gone")
-    reg.set(n, 9)
+    ui.registry.set(n, 9)
     await ui.tick()
     expect(probe.getAttribute("data-n")).toBe("1")
 
